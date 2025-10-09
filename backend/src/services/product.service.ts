@@ -1,0 +1,351 @@
+import pool from '../config/database';
+import { Product, Strain, Inventory } from '../types';
+import { AppError } from '../middleware/error.middleware';
+import { ResultSetHeader, RowDataPacket } from 'mysql2';
+import { slugify } from '../utils/auth.utils';
+
+export class ProductService {
+  static async create(productData: Partial<Product>): Promise<Product> {
+    const connection = await pool.getConnection();
+    
+    try {
+      await connection.beginTransaction();
+      
+      const slug = productData.slug || slugify(productData.name!);
+      
+      // Insert product with product_category and model_3d
+      const [result] = await connection.execute<ResultSetHeader>(
+        `INSERT INTO products (
+          name, slug, type, product_category, category_id, description, 
+          price, size, thc, cbd, image, gallery, model_3d, features, is_active
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          productData.name,
+          slug,
+          productData.type,
+          productData.product_category || null,
+          productData.category_id || null,
+          productData.description || null,
+          productData.price,
+          productData.size || null,
+          productData.thc || null,
+          productData.cbd || null,
+          productData.image || null,
+          JSON.stringify(productData.gallery || []),
+          productData.model_3d || null,
+          JSON.stringify(productData.features || []),
+          productData.is_active !== false
+        ]
+      );
+      
+      const productId = result.insertId;
+      
+      // Create inventory record with initial stock
+      const initialStock = productData.stock || 0;
+      await connection.execute(
+        'INSERT INTO inventory (product_id, quantity, low_stock_threshold) VALUES (?, ?, ?)',
+        [productId, initialStock, 10]
+      );
+      
+      // Add strains if provided
+      if (productData.strains && productData.strains.length > 0) {
+        for (const strainId of productData.strains) {
+          await connection.execute(
+            'INSERT INTO product_strains (product_id, strain_id) VALUES (?, ?)',
+            [productId, strainId]
+          );
+        }
+      }
+      
+      await connection.commit();
+      return this.findById(productId);
+      
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
+  }
+  
+  static async findAll(filters: any = {}): Promise<Product[]> {
+    let query = `
+      SELECT p.*, 
+             c.name as category_name,
+             i.quantity as stock_quantity,
+             i.reserved_quantity,
+             i.low_stock_threshold
+      FROM products p
+      LEFT JOIN categories c ON p.category_id = c.id
+      LEFT JOIN inventory i ON p.id = i.product_id
+      WHERE 1=1
+    `;
+    
+    const params: any[] = [];
+    
+    if (filters.type) {
+      query += ' AND p.type = ?';
+      params.push(filters.type);
+    }
+    
+    if (filters.product_category) {
+      query += ' AND p.product_category = ?';
+      params.push(filters.product_category);
+    }
+    
+    if (filters.category_id) {
+      query += ' AND p.category_id = ?';
+      params.push(filters.category_id);
+    }
+    
+    if (filters.is_active !== undefined) {
+      query += ' AND p.is_active = ?';
+      params.push(filters.is_active);
+    }
+    
+    if (filters.search) {
+      query += ' AND (p.name LIKE ? OR p.description LIKE ?)';
+      params.push(`%${filters.search}%`, `%${filters.search}%`);
+    }
+    
+    query += ' ORDER BY p.created_at DESC';
+    
+    if (filters.limit) {
+      const limit = parseInt(filters.limit) || 20;
+      const page = parseInt(filters.page) || 1;
+      const offset = (page - 1) * limit;
+      
+      query += ` LIMIT ${limit} OFFSET ${offset}`;
+    }
+    
+    const [rows] = await pool.execute<RowDataPacket[]>(query, params);
+    
+    for (const product of rows) {
+      const [strainRows] = await pool.execute<RowDataPacket[]>(
+        `SELECT s.* FROM strains s
+         JOIN product_strains ps ON s.id = ps.strain_id
+         WHERE ps.product_id = ?`,
+        [product.id]
+      );
+      
+      product.strains = strainRows;
+      product.stock = product.stock_quantity || 0;
+      
+      if (product.gallery) {
+        try {
+          product.gallery = JSON.parse(product.gallery);
+        } catch {
+          product.gallery = [];
+        }
+      }
+      
+      if (product.features) {
+        try {
+          product.features = JSON.parse(product.features);
+        } catch {
+          product.features = [];
+        }
+      }
+    }
+    
+    return rows as Product[];
+  }
+  
+  static async findById(id: number): Promise<Product> {
+    const [rows] = await pool.execute<RowDataPacket[]>(
+      `SELECT p.*, 
+              c.name as category_name,
+              i.quantity as stock_quantity,
+              i.reserved_quantity,
+              i.low_stock_threshold
+       FROM products p
+       LEFT JOIN categories c ON p.category_id = c.id
+       LEFT JOIN inventory i ON p.id = i.product_id
+       WHERE p.id = ?`,
+      [id]
+    );
+    
+    if (rows.length === 0) {
+      throw new AppError('Product not found', 404);
+    }
+    
+    const product = rows[0];
+    
+    const [strainRows] = await pool.execute<RowDataPacket[]>(
+      `SELECT s.* FROM strains s
+       JOIN product_strains ps ON s.id = ps.strain_id
+       WHERE ps.product_id = ?`,
+      [id]
+    );
+    
+    product.strains = strainRows;
+    product.stock = product.stock_quantity || 0;
+    
+    // ВАЖНО: Парсим gallery из JSON строки
+    if (product.gallery) {
+      try {
+        // Если gallery это строка, парсим её
+        if (typeof product.gallery === 'string') {
+          product.gallery = JSON.parse(product.gallery);
+        }
+      } catch (e) {
+        console.error('Failed to parse gallery JSON:', e);
+        product.gallery = [];
+      }
+    } else {
+      product.gallery = [];
+    }
+    
+    // Парсим features из JSON строки
+    if (product.features) {
+      try {
+        if (typeof product.features === 'string') {
+          product.features = JSON.parse(product.features);
+        }
+      } catch {
+        product.features = [];
+      }
+    } else {
+      product.features = [];
+    }
+    
+    console.log('Product loaded from DB:', {
+      id: product.id,
+      name: product.name,
+      gallery: product.gallery,
+      galleryType: typeof product.gallery
+    });
+    
+    return product as Product;
+  }
+  
+  static async update(id: number, productData: Partial<Product>): Promise<Product> {
+    const connection = await pool.getConnection();
+    
+    try {
+      await connection.beginTransaction();
+      
+      const updates: string[] = [];
+      const values: any[] = [];
+      
+      if (productData.name !== undefined) {
+        updates.push('name = ?');
+        values.push(productData.name);
+      }
+      
+      if (productData.slug !== undefined) {
+        updates.push('slug = ?');
+        values.push(productData.slug);
+      }
+      
+      if (productData.type !== undefined) {
+        updates.push('type = ?');
+        values.push(productData.type);
+      }
+      
+      if (productData.product_category !== undefined) {
+        updates.push('product_category = ?');
+        values.push(productData.product_category);
+      }
+      
+      if (productData.category_id !== undefined) {
+        updates.push('category_id = ?');
+        values.push(productData.category_id);
+      }
+      
+      if (productData.description !== undefined) {
+        updates.push('description = ?');
+        values.push(productData.description);
+      }
+      
+      if (productData.price !== undefined) {
+        updates.push('price = ?');
+        values.push(productData.price);
+      }
+      
+      if (productData.size !== undefined) {
+        updates.push('size = ?');
+        values.push(productData.size);
+      }
+      
+      if (productData.thc !== undefined) {
+        updates.push('thc = ?');
+        values.push(productData.thc);
+      }
+      
+      if (productData.cbd !== undefined) {
+        updates.push('cbd = ?');
+        values.push(productData.cbd);
+      }
+      
+      if (productData.image !== undefined) {
+        updates.push('image = ?');
+        values.push(productData.image);
+      }
+      
+      if (productData.gallery !== undefined) {
+        updates.push('gallery = ?');
+        values.push(JSON.stringify(productData.gallery));
+      }
+      
+      if (productData.model_3d !== undefined) {
+        updates.push('model_3d = ?');
+        values.push(productData.model_3d);
+      }
+      
+      if (productData.features !== undefined) {
+        updates.push('features = ?');
+        values.push(JSON.stringify(productData.features));
+      }
+      
+      if (productData.is_active !== undefined) {
+        updates.push('is_active = ?');
+        values.push(productData.is_active);
+      }
+      
+      if (updates.length > 0) {
+        values.push(id);
+        await connection.execute(
+          `UPDATE products SET ${updates.join(', ')} WHERE id = ?`,
+          values
+        );
+      }
+      
+      // Update stock if provided
+      if (productData.stock !== undefined) {
+        await connection.execute(
+          'UPDATE inventory SET quantity = ? WHERE product_id = ?',
+          [productData.stock, id]
+        );
+      }
+      
+      // Update strains if provided
+      if (productData.strains) {
+        await connection.execute(
+          'DELETE FROM product_strains WHERE product_id = ?',
+          [id]
+        );
+        
+        for (const strainId of productData.strains) {
+          await connection.execute(
+            'INSERT INTO product_strains (product_id, strain_id) VALUES (?, ?)',
+            [id, strainId]
+          );
+        }
+      }
+      
+      await connection.commit();
+      return this.findById(id);
+      
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
+  }
+  
+  static async delete(id: number): Promise<void> {
+    await pool.execute('DELETE FROM products WHERE id = ?', [id]);
+  }
+}

@@ -4,7 +4,7 @@ import { motion, useScroll, useTransform } from 'framer-motion';
 import { ChevronDown, Play, Pause, Volume2, VolumeX, Flower2, Hash, Sparkles, ArrowRight, Clock, Shield, Award } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import AnimatedBackground from '../components/common/AnimatedBackground';
-import Product3DCarousel, { preloadCarouselModels } from '../components/products/Product3DCarousel';
+import ProductImageCarousel from '../components/products/ProductImageCarousel';
 
 // Типы для категорий по сортам
 type StrainCategory = 'cyan' | 'white' | 'black';
@@ -347,8 +347,7 @@ const VideoHero = () => {
   );
 };
 
-// Category Card Component с каруселью
-// Category Card Component с исправленным обработчиком клика
+// Category Card Component с новой каруселью изображений
 const CategoryCard = ({ category, onClick, index }: { 
   category: CategoryInfo; 
   onClick: () => void; 
@@ -366,7 +365,6 @@ const CategoryCard = ({ category, onClick, index }: {
       whileHover={{ y: -10 }}
       onHoverStart={() => setIsHovered(true)}
       onHoverEnd={() => setIsHovered(false)}
-      // УБИРАЕМ onClick отсюда
       className="relative group"
     >
       <div className="relative bg-white/[0.02] backdrop-blur-xl rounded-3xl border border-white/[0.05] overflow-hidden hover:border-white/[0.1] transition-all duration-500">
@@ -374,12 +372,12 @@ const CategoryCard = ({ category, onClick, index }: {
           className={`absolute inset-0 bg-gradient-to-br ${category.gradient} opacity-0 group-hover:opacity-[0.03] transition-opacity duration-500`}
         />
         
-        {/* 3D Carousel Section */}
+        {/* Image Carousel Section */}
         <div className="relative h-[400px] lg:h-[450px] overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/20" />
           
-          {/* 3D Carousel */}
-          <Product3DCarousel strainType={category.id} autoRotate={true} />
+          {/* Новая карусель изображений */}
+          <ProductImageCarousel strainType={category.id} autoRotate={true} />
           
           {/* Badge */}
           <motion.div
@@ -414,11 +412,10 @@ const CategoryCard = ({ category, onClick, index }: {
             ))}
           </div>
           
-          {/* КНОПКА С onClick - только здесь будет переход */}
           <motion.button
             onClick={(e) => {
-              e.stopPropagation(); // Предотвращаем всплытие события
-              onClick(); // Вызываем переход в каталог
+              e.stopPropagation();
+              onClick();
             }}
             className={`w-full py-4 rounded-2xl font-medium text-sm relative overflow-hidden group/btn transition-all duration-300
               bg-white/[0.03] border border-white/[0.08] hover:bg-white/[0.05] hover:border-white/[0.12] cursor-pointer`}
@@ -448,10 +445,6 @@ const CategoryCard = ({ category, onClick, index }: {
 const Home: React.FC = () => {
   const navigate = useNavigate();
   
-  useEffect(() => {
-    preloadCarouselModels();
-  }, []);
-
   const handleCategoryClick = (categoryId: string) => {
     navigate('/catalog', { state: { strainType: categoryId.toUpperCase() } });
   };

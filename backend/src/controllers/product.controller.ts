@@ -4,6 +4,8 @@ import { InventoryService } from '../services/inventory.service';
 import { AppError, asyncHandler } from '../middleware/error.middleware';
 import path from 'path';
 import fs from 'fs';
+import pool from '../config/database';
+import { RowDataPacket } from 'mysql2';
 
 export const createProduct = asyncHandler(async (req: any, res: Response) => {
   console.log('=== CREATE PRODUCT REQUEST ===');
@@ -41,12 +43,23 @@ export const createProduct = asyncHandler(async (req: any, res: Response) => {
     }
   }
   
+  // Parse strains array
+  let strainsArray = [];
   if (typeof productData.strains === 'string') {
     try {
-      productData.strains = JSON.parse(productData.strains);
+      strainsArray = JSON.parse(productData.strains);
     } catch {
-      productData.strains = [];
+      strainsArray = [];
     }
+  } else if (Array.isArray(productData.strains)) {
+    strainsArray = productData.strains;
+  }
+  
+  // Convert strain_id to number if provided
+  if (productData.strain_id && productData.strain_id !== '') {
+    productData.strain_id = parseInt(productData.strain_id);
+  } else {
+    productData.strain_id = null;
   }
   
   // Convert stock to number
@@ -54,7 +67,15 @@ export const createProduct = asyncHandler(async (req: any, res: Response) => {
     productData.stock = parseInt(productData.stock);
   }
   
+  // Удаляем strains из productData перед созданием продукта
+  delete productData.strains;
+  
   const product = await ProductService.create(productData);
+  
+  // Сохраняем связи с сортами
+  if (strainsArray.length > 0 && product.id) {
+    await saveProductStrains(product.id, strainsArray);
+  }
   
   res.status(201).json({
     success: true,
@@ -87,14 +108,11 @@ export const updateProduct = asyncHandler(async (req: any, res: Response) => {
   
   // Handle gallery - ТОЛЬКО если что-то передано про галерею
   if (productData.removeGallery === 'true') {
-    // Явное удаление всей галереи
     productData.gallery = [];
     delete productData.removeGallery;
   } else if (productData.keepExistingGallery || (req.files && req.files.gallery)) {
-    // Обновление галереи
     let newGallery = [];
     
-    // Парсим существующие изображения которые нужно сохранить
     if (productData.keepExistingGallery) {
       try {
         const keepExisting = JSON.parse(productData.keepExistingGallery);
@@ -107,7 +125,6 @@ export const updateProduct = asyncHandler(async (req: any, res: Response) => {
       delete productData.keepExistingGallery;
     }
     
-    // Добавляем новые изображения
     if (req.files && req.files.gallery) {
       const newImages = req.files.gallery.map((file: any) => 
         `/uploads/products/${file.filename}`
@@ -117,8 +134,6 @@ export const updateProduct = asyncHandler(async (req: any, res: Response) => {
     
     productData.gallery = newGallery;
   }
-  // Если ничего не передано про галерею - НЕ ТРОГАЕМ ЕЁ
-  // productData.gallery будет undefined и не перезапишет существующую
   
   // Parse JSON fields
   if (typeof productData.features === 'string') {
@@ -129,12 +144,27 @@ export const updateProduct = asyncHandler(async (req: any, res: Response) => {
     }
   }
   
+  // Parse strains array
+  let strainsArray = [];
   if (typeof productData.strains === 'string') {
     try {
-      productData.strains = JSON.parse(productData.strains);
+      strainsArray = JSON.parse(productData.strains);
     } catch {
-      productData.strains = [];
+      strainsArray = [];
     }
+  } else if (Array.isArray(productData.strains)) {
+    strainsArray = productData.strains;
+  }
+  
+  // Convert strain_id to number if provided
+  if (productData.strain_id && productData.strain_id !== '') {
+    productData.strain_id = parseInt(productData.strain_id);
+    // Проверяем, что основной сорт входит в выбранные сорта
+    if (strainsArray.length > 0 && !strainsArray.includes(productData.strain_id)) {
+      productData.strain_id = null;
+    }
+  } else {
+    productData.strain_id = null;
   }
   
   // Convert stock to number
@@ -142,9 +172,15 @@ export const updateProduct = asyncHandler(async (req: any, res: Response) => {
     productData.stock = parseInt(productData.stock);
   }
   
+  // Удаляем strains из productData перед обновлением продукта
+  delete productData.strains;
+  
   console.log('Final productData for update:', productData);
   
   const product = await ProductService.update(productId, productData);
+  
+  // Обновляем связи с сортами
+  await updateProductStrains(productId, strainsArray);
   
   res.json({
     success: true,
@@ -183,10 +219,30 @@ export const getProduct = asyncHandler(async (req: Request, res: Response) => {
   });
 });
 
+export const getProductStrains = asyncHandler(async (req: Request, res: Response) => {
+  const productId = parseInt(req.params.id);
+  
+  const [strains] = await pool.execute<RowDataPacket[]>(`
+    SELECT s.* 
+    FROM strains s
+    INNER JOIN product_strains ps ON s.id = ps.strain_id
+    WHERE ps.product_id = ?
+    ORDER BY s.name ASC
+  `, [productId]);
+  
+  res.json({
+    success: true,
+    strains
+  });
+});
+
 export const deleteProduct = asyncHandler(async (req: Request, res: Response) => {
   const productId = parseInt(req.params.id);
   
   const product = await ProductService.findById(productId);
+  
+  // Удаляем связи с сортами
+  await pool.execute('DELETE FROM product_strains WHERE product_id = ?', [productId]);
   
   await ProductService.delete(productId);
   
@@ -223,3 +279,38 @@ export const getLowStockProducts = asyncHandler(async (req: Request, res: Respon
     products
   });
 });
+
+// Вспомогательные функции для работы с связями продукт-сорта
+async function saveProductStrains(productId: number, strainIds: number[]) {
+  if (!strainIds || strainIds.length === 0) return;
+  
+  // Удаляем старые связи
+  await pool.execute('DELETE FROM product_strains WHERE product_id = ?', [productId]);
+  
+  // Добавляем новые связи
+  const values = strainIds.map(strainId => [productId, strainId]);
+  const placeholders = values.map(() => '(?, ?)').join(', ');
+  const flatValues = values.flat();
+  
+  await pool.execute(
+    `INSERT INTO product_strains (product_id, strain_id) VALUES ${placeholders}`,
+    flatValues
+  );
+}
+
+async function updateProductStrains(productId: number, strainIds: number[]) {
+  // Удаляем старые связи
+  await pool.execute('DELETE FROM product_strains WHERE product_id = ?', [productId]);
+  
+  // Если есть новые сорта, добавляем их
+  if (strainIds && strainIds.length > 0) {
+    const values = strainIds.map(strainId => [productId, strainId]);
+    const placeholders = values.map(() => '(?, ?)').join(', ');
+    const flatValues = values.flat();
+    
+    await pool.execute(
+      `INSERT INTO product_strains (product_id, strain_id) VALUES ${placeholders}`,
+      flatValues
+    );
+  }
+}

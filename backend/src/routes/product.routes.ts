@@ -10,7 +10,7 @@ const router = Router();
 router.get('/', productController.getProducts);
 router.get('/low-stock', authenticate, authorize('admin'), productController.getLowStockProducts);
 router.get('/:id', productController.getProduct);
-
+router.get('/:id/strains', productController.getProductStrains);
 // Admin routes
 router.post(
   '/',

@@ -37,17 +37,21 @@ export interface Product {
   stock?: number;
   strains?: Strain[];
   inventory?: Inventory;
+  strain_id?: number; // Добавляем для одиночного сорта
+  strain?: Strain; // Добавляем для данных сорта
 }
 
 export interface Strain {
   id?: number;
   name: string;
   description?: string;
-  effects?: string[];
-  flavors?: string[];
+  type?: 'Sativa' | 'Indica' | 'Hybrid';
   thc_content?: string;
   cbd_content?: string;
-  type?: 'Sativa' | 'Indica' | 'Hybrid';
+  terpenes?: string;
+  aroma_taste?: string;
+  effects?: string;
+  flavors?: string[]; // Оставляем для совместимости
 }
 
 export interface Category {

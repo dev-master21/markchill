@@ -10,8 +10,8 @@ export interface Product {
   category: string;
   category_id?: number;
   category_name?: string;
-  product_category?: ProductCategory; // snake_case для совместимости с бэкендом
-  productCategory?: ProductCategory; // camelCase алиас
+  product_category?: ProductCategory;
+  productCategory?: ProductCategory;
   strains: Strain[];
   price: number;
   originalPrice?: number;
@@ -20,8 +20,8 @@ export interface Product {
   size: string;
   image: string;
   images: string[];
-  gallery?: string[]; // добавляем gallery
-  model_3d?: string; // добавляем model_3d
+  gallery?: string[];
+  model_3d?: string;
   description: string;
   features: string[];
   inStock: boolean;
@@ -32,7 +32,12 @@ export interface Product {
   cbd?: string;
   featured?: boolean;
   new?: boolean;
-  is_active?: boolean; // добавляем is_active
+  is_active?: boolean;
+  strain_id?: number; // Добавляем это поле
+  strain?: any; // Добавляем для хранения информации о сорте
+  terpenes?: string;
+  aroma_taste?: string;
+  effects?: string;
 }
 
 export interface CartItem {

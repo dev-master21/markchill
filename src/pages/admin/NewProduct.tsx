@@ -19,7 +19,7 @@ import AdminSidebar from '../../components/admin/AdminSidebar';
 import AnimatedBackground from '../../components/common/AnimatedBackground';
 import productService from '../../services/product.service';
 import categoryService from '../../services/category.service';
-import strainService from '../../services/strain.service';
+import strainService, { Strain } from '../../services/strain.service';
 import toast from 'react-hot-toast';
 
 const productCategories = [
@@ -34,8 +34,10 @@ const NewProduct: React.FC = () => {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [categories, setCategories] = useState<any[]>([]);
-  const [strains, setStrains] = useState<any[]>([]);
+  const [_categories, setCategories] = useState<any[]>([]);
+  const [strains, setStrains] = useState<Strain[]>([]);
+  const [selectedStrain, setSelectedStrain] = useState<number | null>(null);
+  const [strainTemplateApplied, setStrainTemplateApplied] = useState(false);
   
   const [formData, setFormData] = useState({
     name: '',
@@ -50,8 +52,12 @@ const NewProduct: React.FC = () => {
     cbd: '',
     model_3d: '',
     features: [''],
-    strains: [] as number[],
-    is_active: true
+    strain_id: null as number | null,
+    is_active: true,
+    // Добавляем поля из сорта
+    terpenes: '',
+    aroma_taste: '',
+    effects: ''
   });
   
   const [images, setImages] = useState({
@@ -78,6 +84,43 @@ const NewProduct: React.FC = () => {
       setStrains(strainsData);
     } catch (error) {
       toast.error('Failed to load data');
+    }
+  };
+
+  const handleStrainSelect = async (strainId: number) => {
+    if (strainId === selectedStrain) return;
+    
+    setSelectedStrain(strainId);
+    setFormData({ ...formData, strain_id: strainId });
+    
+    if (!strainTemplateApplied) {
+      const shouldApplyTemplate = window.confirm(
+        'Do you want to apply this strain template? This will update THC, CBD, terpenes, aroma, and effects fields.'
+      );
+      
+      if (shouldApplyTemplate) {
+        await applyStrainTemplate(strainId);
+      }
+    }
+  };
+
+  const applyStrainTemplate = async (strainId: number) => {
+    try {
+      const strain = strains.find(s => s.id === strainId);
+      if (strain) {
+        setFormData(prev => ({
+          ...prev,
+          thc: strain.thc_content || prev.thc,
+          cbd: strain.cbd_content || prev.cbd,
+          terpenes: strain.terpenes || prev.terpenes,
+          aroma_taste: strain.aroma_taste || prev.aroma_taste,
+          effects: strain.effects || prev.effects
+        }));
+        setStrainTemplateApplied(true);
+        toast.success('Strain template applied');
+      }
+    } catch (error) {
+      toast.error('Failed to apply strain template');
     }
   };
 
@@ -124,13 +167,6 @@ const NewProduct: React.FC = () => {
     setFormData({ ...formData, features: newFeatures });
   };
 
-  const handleStrainToggle = (strainId: number) => {
-    const newStrains = formData.strains.includes(strainId)
-      ? formData.strains.filter(id => id !== strainId)
-      : [...formData.strains, strainId];
-    setFormData({ ...formData, strains: newStrains });
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -151,9 +187,11 @@ const NewProduct: React.FC = () => {
       
       // Add all form fields
       Object.keys(formData).forEach(key => {
-        if (key === 'features' || key === 'strains') {
+        if (key === 'features') {
           data.append(key, JSON.stringify(formData[key as keyof typeof formData]));
-        } else {
+        } else if (key === 'strain_id' && formData.strain_id) {
+          data.append(key, formData.strain_id.toString());
+        } else if (formData[key as keyof typeof formData] !== null) {
           data.append(key, String(formData[key as keyof typeof formData]));
         }
       });
@@ -219,34 +257,35 @@ const NewProduct: React.FC = () => {
                     
                     <div className="space-y-4">
                       <div>
-                        <label className="text-sm text-gray-400 mb-2 block">Product Name *</label>
+                        <label className="block text-sm font-medium mb-2">Product Name *</label>
                         <input
                           type="text"
-                          value={formData.name}
-                          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                          className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl focus:outline-none focus:border-primary/50 transition-colors"
-                          placeholder="Enter product name"
                           required
+                          value={formData.name}
+                          onChange={(e) => setFormData({...formData, name: e.target.value})}
+                          className="w-full px-4 py-2 bg-white/5 rounded-xl border border-white/10 
+                                   focus:border-primary/50 transition-colors"
+                          placeholder="Enter product name"
                         />
                       </div>
                       
                       <div>
-                        <label className="text-sm text-gray-400 mb-2 block">Strain Type *</label>
+                        <label className="block text-sm font-medium mb-2">Type *</label>
                         <select
                           value={formData.type}
-                          onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                          className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl focus:outline-none focus:border-primary/50 transition-colors"
-                          required
+                          onChange={(e) => setFormData({...formData, type: e.target.value})}
+                          className="w-full px-4 py-2 bg-white/5 rounded-xl border border-white/10 
+                                   focus:border-primary/50 transition-colors"
                         >
-                          <option value="WHITE" className="bg-dark">White (Sativa)</option>
-                          <option value="BLACK" className="bg-dark">Black (Indica)</option>
-                          <option value="CYAN" className="bg-dark">Cyan (Hybrid)</option>
+                          <option value="WHITE">WHITE</option>
+                          <option value="BLACK">BLACK</option>
+                          <option value="CYAN">CYAN</option>
                         </select>
                       </div>
                       
                       <div>
-                        <label className="text-sm text-gray-400 mb-2 block">Product Type *</label>
-                        <div className="grid grid-cols-2 gap-3">
+                        <label className="block text-sm font-medium mb-2">Product Type *</label>
+                        <div className="grid grid-cols-2 gap-2">
                           {productCategories.map((cat) => {
                             const Icon = cat.icon;
                             return (
@@ -255,131 +294,152 @@ const NewProduct: React.FC = () => {
                                 type="button"
                                 whileHover={{ scale: 1.02 }}
                                 whileTap={{ scale: 0.98 }}
-                                onClick={() => setFormData({ ...formData, product_category: cat.id })}
-                                className={`p-3 rounded-xl border transition-all ${
-                                  formData.product_category === cat.id
-                                    ? 'border-primary bg-primary/20'
-                                    : 'border-white/10 bg-white/5 hover:bg-white/10'
-                                }`}
+                                onClick={() => setFormData({...formData, product_category: cat.id})}
+                                className={`p-3 rounded-xl border transition-colors flex items-center gap-2
+                                  ${formData.product_category === cat.id 
+                                    ? 'bg-primary/20 border-primary' 
+                                    : 'bg-white/5 border-white/10 hover:border-white/30'}`}
                               >
-                                <Icon className={`w-5 h-5 mx-auto mb-1 ${
-                                  formData.product_category === cat.id ? 'text-primary' : 'text-gray-400'
-                                }`} />
-                                <p className={`text-xs ${
-                                  formData.product_category === cat.id ? 'text-primary' : 'text-gray-400'
-                                }`}>
-                                  {cat.name}
-                                </p>
+                                <Icon className="w-4 h-4" />
+                                <span className="text-sm">{cat.name}</span>
                               </motion.button>
                             );
                           })}
                         </div>
                       </div>
                       
-                      <div>
-                        <label className="text-sm text-gray-400 mb-2 block">Category</label>
-                        <select
-                          value={formData.category_id}
-                          onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
-                          className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl focus:outline-none focus:border-primary/50 transition-colors"
-                        >
-                          <option value="" className="bg-dark">Select category</option>
-                          {categories.map(category => (
-                            <option key={category.id} value={category.id} className="bg-dark">
-                              {category.name}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      
-                      <div>
-                        <label className="text-sm text-gray-400 mb-2 block">Description</label>
-                        <textarea
-                          value={formData.description}
-                          onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                          rows={4}
-                          className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl focus:outline-none focus:border-primary/50 transition-colors resize-none"
-                          placeholder="Product description..."
-                        />
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium mb-2">Price *</label>
+                          <input
+                            type="number"
+                            required
+                            step="0.01"
+                            value={formData.price}
+                            onChange={(e) => setFormData({...formData, price: e.target.value})}
+                            className="w-full px-4 py-2 bg-white/5 rounded-xl border border-white/10 
+                                     focus:border-primary/50 transition-colors"
+                            placeholder="0.00"
+                          />
+                        </div>
+                        
+                        <div>
+                          <label className="block text-sm font-medium mb-2">Stock</label>
+                          <input
+                            type="number"
+                            value={formData.stock}
+                            onChange={(e) => setFormData({...formData, stock: e.target.value})}
+                            className="w-full px-4 py-2 bg-white/5 rounded-xl border border-white/10 
+                                     focus:border-primary/50 transition-colors"
+                            placeholder="0"
+                          />
+                        </div>
                       </div>
                     </div>
                   </motion.div>
                   
-                  {/* Pricing & Inventory */}
+                  {/* Strain Selection */}
                   <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.1 }}
                     className="glass-dark rounded-2xl p-6"
                   >
-                    <h2 className="text-xl font-bold mb-4">Pricing & Inventory</h2>
+                    <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+                      <Cigarette className="w-5 h-5 text-primary" />
+                      Strain Selection
+                    </h2>
                     
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-4">
                       <div>
-                        <label className="text-sm text-gray-400 mb-2 block">Price (THB) *</label>
-                        <input
-                          type="number"
-                          value={formData.price}
-                          onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                          className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl focus:outline-none focus:border-primary/50 transition-colors"
-                          placeholder="0"
-                          required
-                        />
+                        <label className="block text-sm font-medium mb-2">Select Strain</label>
+                        <select
+                          value={selectedStrain || ''}
+                          onChange={(e) => handleStrainSelect(Number(e.target.value))}
+                          className="w-full px-4 py-2 bg-white/5 rounded-xl border border-white/10 
+                                   focus:border-primary/50 transition-colors"
+                        >
+                          <option value="">No strain selected</option>
+                          {strains.map(strain => (
+                            <option key={strain.id} value={strain.id}>
+                              {strain.name} ({strain.type})
+                            </option>
+                          ))}
+                        </select>
                       </div>
                       
-                      <div>
-                        <label className="text-sm text-gray-400 mb-2 block">Stock Quantity *</label>
-                        <input
-                          type="number"
-                          value={formData.stock}
-                          onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
-                          className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl focus:outline-none focus:border-primary/50 transition-colors"
-                          placeholder="0"
-                          required
-                        />
-                      </div>
+                      {selectedStrain && (
+                        <motion.button
+                          type="button"
+                          initial={{ opacity: 0, y: -10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                          onClick={() => applyStrainTemplate(selectedStrain)}
+                          className="w-full py-2 px-4 bg-primary/20 text-primary rounded-xl 
+                                   border border-primary/50 hover:bg-primary/30 transition-colors"
+                        >
+                          Re-apply Strain Template
+                        </motion.button>
+                      )}
                       
                       <div>
-                        <label className="text-sm text-gray-400 mb-2 block">Size</label>
-                        <input
-                          type="text"
-                          value={formData.size}
-                          onChange={(e) => setFormData({ ...formData, size: e.target.value })}
-                          className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl focus:outline-none focus:border-primary/50 transition-colors"
-                          placeholder="e.g. 1g, 3.5g"
-                        />
-                      </div>
-                      
-                      <div>
-                        <label className="text-sm text-gray-400 mb-2 block">3D Model URL</label>
-                        <input
-                          type="text"
-                          value={formData.model_3d}
-                          onChange={(e) => setFormData({ ...formData, model_3d: e.target.value })}
-                          className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl focus:outline-none focus:border-primary/50 transition-colors"
-                          placeholder="/models/product.glb"
-                        />
-                      </div>
-                      
-                      <div>
-                        <label className="text-sm text-gray-400 mb-2 block">THC %</label>
+                        <label className="block text-sm font-medium mb-2">THC Content</label>
                         <input
                           type="text"
                           value={formData.thc}
-                          onChange={(e) => setFormData({ ...formData, thc: e.target.value })}
-                          className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl focus:outline-none focus:border-primary/50 transition-colors"
-                          placeholder="e.g. 18-22%"
+                          onChange={(e) => setFormData({...formData, thc: e.target.value})}
+                          className="w-full px-4 py-2 bg-white/5 rounded-xl border border-white/10 
+                                   focus:border-primary/50 transition-colors"
+                          placeholder="e.g., 25%"
                         />
                       </div>
                       
                       <div>
-                        <label className="text-sm text-gray-400 mb-2 block">CBD %</label>
+                        <label className="block text-sm font-medium mb-2">CBD Content</label>
                         <input
                           type="text"
                           value={formData.cbd}
-                          onChange={(e) => setFormData({ ...formData, cbd: e.target.value })}
-                          className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl focus:outline-none focus:border-primary/50 transition-colors"
-                          placeholder="e.g. 0.1%"
+                          onChange={(e) => setFormData({...formData, cbd: e.target.value})}
+                          className="w-full px-4 py-2 bg-white/5 rounded-xl border border-white/10 
+                                   focus:border-primary/50 transition-colors"
+                          placeholder="e.g., <0.3%"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium mb-2">Terpenes</label>
+                        <input
+                          type="text"
+                          value={formData.terpenes}
+                          onChange={(e) => setFormData({...formData, terpenes: e.target.value})}
+                          className="w-full px-4 py-2 bg-white/5 rounded-xl border border-white/10 
+                                   focus:border-primary/50 transition-colors"
+                          placeholder="e.g., Myrcene, Caryophyllene, Limonene"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium mb-2">Aroma & Taste</label>
+                        <input
+                          type="text"
+                          value={formData.aroma_taste}
+                          onChange={(e) => setFormData({...formData, aroma_taste: e.target.value})}
+                          className="w-full px-4 py-2 bg-white/5 rounded-xl border border-white/10 
+                                   focus:border-primary/50 transition-colors"
+                          placeholder="e.g., Citrus, diesel, fuel"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium mb-2">Effects</label>
+                        <textarea
+                          value={formData.effects}
+                          onChange={(e) => setFormData({...formData, effects: e.target.value})}
+                          rows={3}
+                          className="w-full px-4 py-2 bg-white/5 rounded-xl border border-white/10 
+                                   focus:border-primary/50 transition-colors resize-none"
+                          placeholder="e.g., Euphoric, Relaxed, Creative, Uplifting"
                         />
                       </div>
                     </div>
@@ -388,7 +448,7 @@ const NewProduct: React.FC = () => {
                 
                 {/* Right Column */}
                 <div className="space-y-6">
-                  {/* Main Image */}
+                  {/* Images */}
                   <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -397,212 +457,208 @@ const NewProduct: React.FC = () => {
                   >
                     <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
                       <ImageIcon className="w-5 h-5 text-primary" />
-                      Main Image *
+                      Product Images
                     </h2>
                     
                     <div className="space-y-4">
-                      {previews.main ? (
-                        <div className="relative group">
-                          <img
-                            src={previews.main}
-                            alt="Main preview"
-                            className="w-full h-64 object-cover rounded-xl"
-                          />
-                          <motion.button
-                            type="button"
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            onClick={() => {
-                              setImages({ ...images, main: null });
-                              setPreviews({ ...previews, main: '' });
-                            }}
-                            className="absolute top-2 right-2 p-2 bg-red-500/80 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
-                          >
-                            <X className="w-4 h-4" />
-                          </motion.button>
+                      {/* Main Image */}
+                      <div>
+                        <label className="block text-sm font-medium mb-2">Main Image *</label>
+                        <div className="border-2 border-dashed border-white/20 rounded-xl p-4 
+                                      hover:border-primary/50 transition-colors">
+                          {previews.main ? (
+                            <div className="relative">
+                              <img src={previews.main} alt="Preview" 
+                                   className="w-full h-48 object-cover rounded-lg" />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setImages({...images, main: null});
+                                  setPreviews({...previews, main: ''});
+                                }}
+                                className="absolute top-2 right-2 p-1 bg-red-500 rounded-lg 
+                                         hover:bg-red-600 transition-colors"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            </div>
+                          ) : (
+                            <label className="cursor-pointer block">
+                              <input
+                                type="file"
+                                accept="image/*"
+                                onChange={handleMainImageChange}
+                                className="hidden"
+                              />
+                              <div className="text-center py-8">
+                                <Upload className="w-12 h-12 mx-auto mb-2 text-gray-400" />
+                                <p className="text-gray-400">Click to upload main image</p>
+                              </div>
+                            </label>
+                          )}
                         </div>
-                      ) : (
-                        <label className="flex flex-col items-center justify-center w-full h-64 border-2 border-dashed border-white/20 rounded-xl cursor-pointer hover:border-primary/50 transition-colors">
-                          <Upload className="w-10 h-10 text-gray-400 mb-2" />
-                          <span className="text-gray-400">Upload main image</span>
-                          <input
-                            type="file"
-                            onChange={handleMainImageChange}
-                            accept="image/*"
-                            className="hidden"
-                          />
-                        </label>
-                      )}
+                      </div>
+                      
+                      {/* Gallery */}
+                      <div>
+                        <label className="block text-sm font-medium mb-2">Gallery Images</label>
+                        <div className="grid grid-cols-3 gap-2">
+                          {previews.gallery.map((preview, index) => (
+                            <div key={index} className="relative">
+                              <img src={preview} alt={`Gallery ${index + 1}`}
+                                   className="w-full h-24 object-cover rounded-lg" />
+                              <button
+                                type="button"
+                                onClick={() => removeGalleryImage(index)}
+                                className="absolute top-1 right-1 p-0.5 bg-red-500 rounded 
+                                         hover:bg-red-600 transition-colors"
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            </div>
+                          ))}
+                          
+                          <label className="cursor-pointer">
+                            <input
+                              type="file"
+                              accept="image/*"
+                              multiple
+                              onChange={handleGalleryChange}
+                              className="hidden"
+                            />
+                            <div className="w-full h-24 border-2 border-dashed border-white/20 
+                                          rounded-lg flex items-center justify-center 
+                                          hover:border-primary/50 transition-colors">
+                              <Plus className="w-6 h-6 text-gray-400" />
+                            </div>
+                          </label>
+                        </div>
+                      </div>
                     </div>
                   </motion.div>
                   
-                  {/* Gallery Images */}
+                  {/* Additional Info */}
                   <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.3 }}
                     className="glass-dark rounded-2xl p-6"
                   >
-                    <h2 className="text-xl font-bold mb-4">Gallery Images</h2>
+                    <h2 className="text-xl font-bold mb-4">Additional Information</h2>
                     
-                    <div className="grid grid-cols-3 gap-3 mb-4">
-                      {previews.gallery.map((preview, index) => (
-                        <div key={index} className="relative group">
-                          <img
-                            src={preview}
-                            alt={`Gallery ${index + 1}`}
-                            className="w-full h-24 object-cover rounded-lg"
-                          />
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium mb-2">Size</label>
+                        <input
+                          type="text"
+                          value={formData.size}
+                          onChange={(e) => setFormData({...formData, size: e.target.value})}
+                          className="w-full px-4 py-2 bg-white/5 rounded-xl border border-white/10 
+                                   focus:border-primary/50 transition-colors"
+                          placeholder="e.g., 1g, 3g, 5g"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium mb-2">3D Model URL</label>
+                        <input
+                          type="text"
+                          value={formData.model_3d}
+                          onChange={(e) => setFormData({...formData, model_3d: e.target.value})}
+                          className="w-full px-4 py-2 bg-white/5 rounded-xl border border-white/10 
+                                   focus:border-primary/50 transition-colors"
+                          placeholder="URL to 3D model file"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium mb-2">Description</label>
+                        <textarea
+                          value={formData.description}
+                          onChange={(e) => setFormData({...formData, description: e.target.value})}
+                          rows={4}
+                          className="w-full px-4 py-2 bg-white/5 rounded-xl border border-white/10 
+                                   focus:border-primary/50 transition-colors resize-none"
+                          placeholder="Product description..."
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium mb-2">Features</label>
+                        <div className="space-y-2">
+                          {formData.features.map((feature, index) => (
+                            <div key={index} className="flex gap-2">
+                              <input
+                                type="text"
+                                value={feature}
+                                onChange={(e) => handleFeatureChange(index, e.target.value)}
+                                className="flex-1 px-4 py-2 bg-white/5 rounded-xl border border-white/10 
+                                         focus:border-primary/50 transition-colors"
+                                placeholder="Enter feature"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => removeFeature(index)}
+                                className="p-2 rounded-xl hover:bg-red-500/20 text-red-400 
+                                         transition-colors"
+                              >
+                                <X className="w-5 h-5" />
+                              </button>
+                            </div>
+                          ))}
+                          
                           <button
                             type="button"
-                            onClick={() => removeGalleryImage(index)}
-                            className="absolute top-1 right-1 p-1 bg-red-500/80 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={addFeature}
+                            className="w-full py-2 rounded-xl border border-dashed border-white/20 
+                                     hover:border-primary/50 transition-colors flex items-center 
+                                     justify-center gap-2 text-gray-400 hover:text-white"
                           >
-                            <X className="w-3 h-3" />
+                            <Plus className="w-4 h-4" />
+                            Add Feature
                           </button>
                         </div>
-                      ))}
-                      
-                      {previews.gallery.length < 10 && (
-                        <label className="flex items-center justify-center h-24 border-2 border-dashed border-white/20 rounded-lg cursor-pointer hover:border-primary/50 transition-colors">
-                          <Plus className="w-6 h-6 text-gray-400" />
-                          <input
-                            type="file"
-                            onChange={handleGalleryChange}
-                            accept="image/*"
-                            multiple
-                            className="hidden"
-                          />
-                        </label>
-                      )}
-                    </div>
-                  </motion.div>
-                  
-                  {/* Strains */}
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.4 }}
-                    className="glass-dark rounded-2xl p-6"
-                  >
-                    <h2 className="text-xl font-bold mb-4">Strains</h2>
-                    
-                    <div className="grid grid-cols-2 gap-3">
-                      {strains.map(strain => (
-                        <label key={strain.id} className="flex items-center gap-2 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={formData.strains.includes(strain.id)}
-                            onChange={() => handleStrainToggle(strain.id)}
-                            className="w-4 h-4 rounded accent-primary"
-                          />
-                          <span className="text-sm">{strain.name}</span>
-                        </label>
-                      ))}
-                    </div>
-                  </motion.div>
-                  
-                  {/* Features */}
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.5 }}
-                    className="glass-dark rounded-2xl p-6"
-                  >
-                    <h2 className="text-xl font-bold mb-4">Features</h2>
-                    
-                    <div className="space-y-3">
-                      {formData.features.map((feature, index) => (
-                        <div key={index} className="flex gap-2">
-                          <input
-                            type="text"
-                            value={feature}
-                            onChange={(e) => handleFeatureChange(index, e.target.value)}
-                            className="flex-1 px-4 py-3 bg-white/5 border border-white/10 rounded-xl focus:outline-none focus:border-primary/50 transition-colors"
-                            placeholder="Feature description"
-                          />
-                          {formData.features.length > 1 && (
-                            <button
-                              type="button"
-                              onClick={() => removeFeature(index)}
-                              className="p-3 bg-red-500/20 text-red-400 rounded-xl hover:bg-red-500/30 transition-colors"
-                            >
-                              <X className="w-4 h-4" />
-                            </button>
-                          )}
-                        </div>
-                      ))}
-                      
-                      <button
-                        type="button"
-                        onClick={addFeature}
-                        className="w-full py-3 bg-primary/20 text-primary rounded-xl hover:bg-primary/30 transition-colors flex items-center justify-center gap-2"
-                      >
-                        <Plus className="w-4 h-4" />
-                        Add Feature
-                      </button>
-                    </div>
-                  </motion.div>
-                  
-                  {/* Status */}
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.6 }}
-                    className="glass-dark rounded-2xl p-6"
-                  >
-                    <h2 className="text-xl font-bold mb-4">Product Status</h2>
-                    
-                    <label className="flex items-center gap-3 p-4 rounded-xl bg-white/5 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={formData.is_active}
-                        onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
-                        className="w-5 h-5 rounded accent-primary"
-                      />
-                      <div>
-                        <p className="font-medium">Active</p>
-                        <p className="text-sm text-gray-400">Product will be visible to customers</p>
                       </div>
-                    </label>
+                      
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="checkbox"
+                          id="is_active"
+                          checked={formData.is_active}
+                          onChange={(e) => setFormData({...formData, is_active: e.target.checked})}
+                          className="w-4 h-4 rounded"
+                        />
+                        <label htmlFor="is_active" className="text-sm">
+                          Product is active and visible
+                        </label>
+                      </div>
+                    </div>
                   </motion.div>
+                  
+                  {/* Submit Button */}
+                  <motion.button
+                    type="submit"
+                    disabled={isLoading}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    className="w-full py-3 bg-gradient-to-r from-primary to-secondary 
+                             rounded-xl font-semibold flex items-center justify-center gap-2
+                             disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isLoading ? (
+                      <>
+                        <Loader className="w-5 h-5 animate-spin" />
+                        Creating...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="w-5 h-5" />
+                        Create Product
+                      </>
+                    )}
+                  </motion.button>
                 </div>
               </div>
-              
-              {/* Submit Buttons */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.7 }}
-                className="mt-8 flex gap-4"
-              >
-                <motion.button
-                  type="submit"
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  disabled={isLoading}
-                  className="flex-1 py-4 gradient-primary text-white font-semibold rounded-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                >
-                  {isLoading ? (
-                    <Loader className="w-5 h-5 animate-spin" />
-                  ) : (
-                    <>
-                      <Save className="w-5 h-5" />
-                      Create Product
-                    </>
-                  )}
-                </motion.button>
-                
-                <motion.button
-                  type="button"
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => navigate('/admin/products')}
-                  className="px-8 py-4 bg-white/10 rounded-xl font-semibold hover:bg-white/20 transition-colors"
-                >
-                  Cancel
-                </motion.button>
-              </motion.div>
             </form>
           </div>
         </div>

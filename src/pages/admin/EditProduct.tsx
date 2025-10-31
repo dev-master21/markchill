@@ -13,13 +13,16 @@ import {
   Box,
   Hash,
   Cigarette,
-  Sparkles
+  Sparkles,
+  Flower2,
+  Check
 } from 'lucide-react';
 import AdminSidebar from '../../components/admin/AdminSidebar';
 import AnimatedBackground from '../../components/common/AnimatedBackground';
 import productService from '../../services/product.service';
 import categoryService from '../../services/category.service';
 import strainService from '../../services/strain.service';
+import api from '../../services/api';
 import toast from 'react-hot-toast';
 
 // SVG placeholder как data URL
@@ -57,6 +60,7 @@ const EditProduct: React.FC = () => {
     model_3d: '',
     features: [''],
     strains: [] as number[],
+    strain_id: null as number | null,
     is_active: true
   });
   
@@ -65,7 +69,7 @@ const EditProduct: React.FC = () => {
     gallery: [] as File[],
     keepMain: true,
     keepGallery: true,
-    existingGallery: [] as string[] // Сохраняем существующие пути gallery
+    existingGallery: [] as string[]
   });
   
   const [previews, setPreviews] = useState({
@@ -85,8 +89,14 @@ const EditProduct: React.FC = () => {
         productService.getProduct(id!)
       ]);
       
-      console.log('Loaded product data:', productData);
-      console.log('Gallery data:', productData.gallery);
+      // Загружаем сорта продукта
+      let productStrains: any[] = [];
+      try {
+        const response = await api.get(`/products/${id}/strains`);
+        productStrains = response.data.strains || [];
+      } catch (error) {
+        console.error('Failed to load product strains:', error);
+      }
       
       setCategories(categoriesData);
       setStrains(strainsData);
@@ -105,7 +115,8 @@ const EditProduct: React.FC = () => {
         cbd: productData.cbd || '',
         model_3d: productData.model_3d || '',
         features: productData.features?.length > 0 ? productData.features : [''],
-        strains: productData.strains?.map((s: any) => typeof s === 'object' ? s.id : s) || [],
+        strains: productStrains.map((s: any) => s.id),
+        strain_id: productData.strain_id || null,
         is_active: productData.is_active !== false
       });
       
@@ -117,7 +128,7 @@ const EditProduct: React.FC = () => {
         }));
       }
       
-      // Обрабатываем gallery - если это строка, парсим её
+      // Обрабатываем gallery
       let galleryArray: string[] = [];
       if (productData.gallery) {
         if (typeof productData.gallery === 'string') {
@@ -131,8 +142,6 @@ const EditProduct: React.FC = () => {
           galleryArray = productData.gallery;
         }
       }
-      
-      console.log('Gallery array:', galleryArray);
       
       if (galleryArray && galleryArray.length > 0) {
         setPreviews(prev => ({ 
@@ -164,7 +173,6 @@ const EditProduct: React.FC = () => {
   const handleGalleryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     if (files.length) {
-      // Если добавляем новые файлы, отмечаем что не сохраняем старые
       setImages({ 
         ...images, 
         gallery: [...images.gallery, ...files], 
@@ -184,14 +192,11 @@ const EditProduct: React.FC = () => {
     const newGallery = [...previews.gallery];
     newGallery.splice(index, 1);
     
-    // Проверяем, удаляем ли мы существующее изображение или новое
     if (index < images.existingGallery.length && images.keepGallery) {
-      // Удаляем существующее изображение
       const newExisting = [...images.existingGallery];
       newExisting.splice(index, 1);
       setImages({ ...images, existingGallery: newExisting, keepGallery: false });
     } else {
-      // Удаляем новое изображение
       const newFileIndex = index - (images.keepGallery ? images.existingGallery.length : 0);
       const newFiles = [...images.gallery];
       if (newFileIndex >= 0 && newFileIndex < newFiles.length) {
@@ -222,7 +227,13 @@ const EditProduct: React.FC = () => {
     const newStrains = formData.strains.includes(strainId)
       ? formData.strains.filter(id => id !== strainId)
       : [...formData.strains, strainId];
-    setFormData({ ...formData, strains: newStrains });
+    
+    // Если убрали выбранный основной сорт, очищаем его
+    if (!newStrains.includes(formData.strain_id!) && formData.strain_id) {
+      setFormData({ ...formData, strains: newStrains, strain_id: null });
+    } else {
+      setFormData({ ...formData, strains: newStrains });
+    }
   };
 
   const handleImageError = (imageId: string) => {
@@ -236,70 +247,66 @@ const EditProduct: React.FC = () => {
     return src || PLACEHOLDER_IMAGE;
   };
 
-    const handleSubmit = async (e: React.FormEvent) => {
-      e.preventDefault();
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+  
+    if (!previews.main && !images.main) {
+      toast.error('Please upload a main image');
+      return;
+    }
     
-      if (!previews.main && !images.main) {
-        toast.error('Please upload a main image');
-        return;
+    if (!formData.product_category) {
+      toast.error('Please select a product type');
+      return;
+    }
+    
+    setIsLoading(true);
+    
+    try {
+      const data = new FormData();
+      
+      Object.keys(formData).forEach(key => {
+        if (key === 'features' || key === 'strains') {
+          data.append(key, JSON.stringify(formData[key as keyof typeof formData]));
+        } else if (key === 'strain_id') {
+          data.append(key, formData.strain_id ? String(formData.strain_id) : '');
+        } else {
+          data.append(key, String(formData[key as keyof typeof formData]));
+        }
+      });
+      
+      // Обработка главного изображения
+      if (images.main) {
+        data.append('image', images.main);
+      } else if (!images.keepMain && !previews.main) {
+        data.append('removeImage', 'true');
       }
       
-      if (!formData.product_category) {
-        toast.error('Please select a product type');
-        return;
-      }
-      
-      setIsLoading(true);
-      
-      try {
-        const data = new FormData();
-        
-        Object.keys(formData).forEach(key => {
-          if (key === 'features' || key === 'strains') {
-            data.append(key, JSON.stringify(formData[key as keyof typeof formData]));
-          } else {
-            data.append(key, String(formData[key as keyof typeof formData]));
-          }
-        });
-        
-        // Обработка главного изображения
-        if (images.main) {
-          data.append('image', images.main);
-        } else if (!images.keepMain && !previews.main) {
-          data.append('removeImage', 'true');
+      // Обработка галереи
+      if (!images.keepGallery) {
+        if (images.gallery.length > 0) {
+          images.gallery.forEach((file) => {
+            data.append('gallery', file);
+          });
         }
         
-        // Обработка галереи - ИСПРАВЛЕНО
-        // Только если мы явно изменили галерею (keepGallery = false)
-        if (!images.keepGallery) {
-          // Добавляем новые файлы если есть
-          if (images.gallery.length > 0) {
-            images.gallery.forEach((file) => {
-              data.append('gallery', file);
-            });
-          }
-          
-          // Сохраняем существующие изображения которые не удалили
-          if (images.existingGallery.length > 0) {
-            data.append('keepExistingGallery', JSON.stringify(images.existingGallery));
-          } else if (images.gallery.length === 0) {
-            // Только если явно удалили все изображения
-            data.append('removeGallery', 'true');
-          }
+        if (images.existingGallery.length > 0) {
+          data.append('keepExistingGallery', JSON.stringify(images.existingGallery));
+        } else if (images.gallery.length === 0) {
+          data.append('removeGallery', 'true');
         }
-        // Если keepGallery = true, значит галерею вообще не трогали
-        // и ничего не отправляем на сервер про галерею
-        
-        await productService.updateProduct(id!, data);
-        toast.success('Product updated successfully!');
-        navigate('/admin/products');
-      } catch (error: any) {
-        console.error('Update error:', error);
-        toast.error(error.response?.data?.error || 'Failed to update product');
-      } finally {
-        setIsLoading(false);
       }
-    };
+      
+      await productService.updateProduct(id!, data);
+      toast.success('Product updated successfully!');
+      navigate('/admin/products');
+    } catch (error: any) {
+      console.error('Update error:', error);
+      toast.error(error.response?.data?.error || 'Failed to update product');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   if (isLoadingProduct) {
     return (
@@ -621,20 +628,70 @@ const EditProduct: React.FC = () => {
                     transition={{ delay: 0.4 }}
                     className="glass-dark rounded-2xl p-6"
                   >
-                    <h2 className="text-xl font-bold mb-4">Strains</h2>
+                    <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+                      <Flower2 className="w-5 h-5 text-primary" />
+                      Available Strains
+                    </h2>
                     
-                    <div className="grid grid-cols-2 gap-3">
-                      {strains.map(strain => (
-                        <label key={strain.id} className="flex items-center gap-2 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={formData.strains.includes(strain.id)}
-                            onChange={() => handleStrainToggle(strain.id)}
-                            className="w-4 h-4 rounded accent-primary"
-                          />
-                          <span className="text-sm">{strain.name}</span>
+                    <div className="space-y-4">
+                      <div>
+                        <label className="text-sm text-gray-400 mb-2 block">
+                          Select strains available for this product
                         </label>
-                      ))}
+                        <div className="grid grid-cols-2 gap-3">
+                          {strains.map(strain => (
+                            <label
+                              key={strain.id}
+                              className={`flex items-center gap-2 p-3 rounded-xl border cursor-pointer transition-all ${
+                                formData.strains.includes(strain.id)
+                                  ? 'bg-primary/20 border-primary'
+                                  : 'bg-white/5 border-white/10 hover:border-white/30'
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={formData.strains.includes(strain.id)}
+                                onChange={() => handleStrainToggle(strain.id)}
+                                className="sr-only"
+                              />
+                              <div className="flex-1">
+                                <p className="font-medium text-sm">{strain.name}</p>
+                                {strain.type && (
+                                  <p className="text-xs text-gray-400">{strain.type}</p>
+                                )}
+                              </div>
+                              {formData.strains.includes(strain.id) && (
+                                <Check className="w-4 h-4 text-primary" />
+                              )}
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                      
+                      {formData.strains.length > 0 && (
+                        <div>
+                          <label className="text-sm text-gray-400 mb-2 block">
+                            Default strain (optional)
+                          </label>
+                          <select
+                            value={formData.strain_id || ''}
+                            onChange={(e) => setFormData({
+                              ...formData,
+                              strain_id: e.target.value ? Number(e.target.value) : null
+                            })}
+                            className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl focus:outline-none focus:border-primary/50 transition-colors"
+                          >
+                            <option value="" className="bg-dark">No default strain</option>
+                            {strains
+                              .filter(s => formData.strains.includes(s.id))
+                              .map(strain => (
+                                <option key={strain.id} value={strain.id} className="bg-dark">
+                                  {strain.name}
+                                </option>
+                              ))}
+                          </select>
+                        </div>
+                      )}
                     </div>
                   </motion.div>
                   

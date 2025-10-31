@@ -1,15 +1,16 @@
-// src/services/strain.service.ts
 import api from './api';
 
 export interface Strain {
-  id: number;
+  id: number; // Убираем optional, делаем обязательным
   name: string;
   description?: string;
-  effects?: string[];
-  flavors?: string[];
+  type?: string;
   thc_content?: string;
   cbd_content?: string;
-  type?: 'Sativa' | 'Indica' | 'Hybrid';
+  terpenes?: string;
+  aroma_taste?: string;
+  effects?: string;
+  flavors?: string[];
 }
 
 class StrainService {
@@ -35,6 +36,11 @@ class StrainService {
   
   async deleteStrain(id: number): Promise<void> {
     await api.delete(`/admin/strains/${id}`);
+  }
+  
+  async getStrainTemplate(id: number): Promise<Partial<Strain>> {
+    const response = await api.get(`/admin/strains/${id}/template`);
+    return response.data.template;
   }
 }
 

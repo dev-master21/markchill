@@ -152,18 +152,17 @@ export class ProductService {
   }
   
   static async findById(id: number): Promise<Product> {
-    const [rows] = await pool.execute<RowDataPacket[]>(
-      `SELECT p.*, 
-              c.name as category_name,
-              i.quantity as stock_quantity,
-              i.reserved_quantity,
-              i.low_stock_threshold
-       FROM products p
-       LEFT JOIN categories c ON p.category_id = c.id
-       LEFT JOIN inventory i ON p.id = i.product_id
-       WHERE p.id = ?`,
-      [id]
-    );
+    const [rows] = await pool.execute<RowDataPacket[]>(`
+      SELECT p.*, 
+             c.name as category_name,
+             i.quantity as stock_quantity,
+             i.reserved_quantity,
+             i.low_stock_threshold
+      FROM products p
+      LEFT JOIN categories c ON p.category_id = c.id
+      LEFT JOIN inventory i ON p.id = i.product_id
+      WHERE p.id = ?
+    `, [id]);
     
     if (rows.length === 0) {
       throw new AppError('Product not found', 404);
@@ -171,20 +170,19 @@ export class ProductService {
     
     const product = rows[0];
     
-    const [strainRows] = await pool.execute<RowDataPacket[]>(
-      `SELECT s.* FROM strains s
-       JOIN product_strains ps ON s.id = ps.strain_id
-       WHERE ps.product_id = ?`,
-      [id]
-    );
+    // Получаем связанные сорта
+    const [strainRows] = await pool.execute<RowDataPacket[]>(`
+      SELECT s.* 
+      FROM strains s
+      INNER JOIN product_strains ps ON s.id = ps.strain_id
+      WHERE ps.product_id = ?
+    `, [id]);
     
     product.strains = strainRows;
-    product.stock = product.stock_quantity || 0;
     
-    // ВАЖНО: Парсим gallery из JSON строки
+    // Парсим gallery из JSON
     if (product.gallery) {
       try {
-        // Если gallery это строка, парсим её
         if (typeof product.gallery === 'string') {
           product.gallery = JSON.parse(product.gallery);
         }
@@ -196,7 +194,7 @@ export class ProductService {
       product.gallery = [];
     }
     
-    // Парсим features из JSON строки
+    // Парсим features из JSON
     if (product.features) {
       try {
         if (typeof product.features === 'string') {
@@ -208,13 +206,6 @@ export class ProductService {
     } else {
       product.features = [];
     }
-    
-    console.log('Product loaded from DB:', {
-      id: product.id,
-      name: product.name,
-      gallery: product.gallery,
-      galleryType: typeof product.gallery
-    });
     
     return product as Product;
   }

@@ -23,9 +23,10 @@ import AdminProducts from './pages/admin/Products';
 import AdminOrders from './pages/admin/Orders';
 import AdminUsers from './pages/admin/Users';
 import AdminSettings from './pages/admin/Settings';
+import AdminStrains from './pages/admin/Strains'; // Новый импорт
 import AdminRoute from './components/common/AdminRoute';
 import NewProduct from './pages/admin/NewProduct';
-import EditProduct from './pages/admin/EditProduct'; // ДОБАВИТЬ ИМПОРТ
+import EditProduct from './pages/admin/EditProduct';
 
 function App() {
   const [isLoading, setIsLoading] = useState(true);
@@ -37,13 +38,11 @@ function App() {
   useEffect(() => {
     const init = async () => {
       // Check age verification
-      const verified = localStorage.getItem('ageVerified');
-      if (verified === 'true') {
-        setIsAgeVerified(true);
-      }
+      const verified = localStorage.getItem('ageVerified') === 'true';
+      setIsAgeVerified(verified);
       
       // Check authentication
-      checkAuth();
+      await checkAuth();
       
       // Fetch products
       await fetchProducts();
@@ -55,13 +54,13 @@ function App() {
       
       setIsLoading(false);
     };
-
+    
     init();
   }, [checkAuth, fetchProducts, fetchCart, isAuthenticated]);
 
   const handleAgeVerification = () => {
-    localStorage.setItem('ageVerified', 'true');
     setIsAgeVerified(true);
+    localStorage.setItem('ageVerified', 'true');
   };
 
   if (isLoading) {
@@ -74,37 +73,28 @@ function App() {
 
   return (
     <Router>
-      <div className="min-h-screen bg-darker">
-        {/* Эффект шума на весь сайт */}
-        <Noise
-          patternSize={200}
-          patternScaleX={1}
-          patternScaleY={1}
-          patternRefreshInterval={3}
-          patternAlpha={50}
-        />
-        
-        {/* TopNav для десктопа */}
-        <TopNav />
-        
-        <Toaster
-          position="top-center"
+      <div className="min-h-screen bg-black">
+        <Noise />
+        <Toaster 
+          position="top-center" 
           toastOptions={{
-            duration: 3000,
             style: {
-              background: '#18181B',
+              background: 'rgba(0, 0, 0, 0.9)',
               color: '#fff',
-              border: '1px solid rgba(35, 192, 219, 0.2)',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+              backdropFilter: 'blur(10px)',
             },
           }}
         />
         
-        <main className="pb-20 lg:pb-0 lg:pt-20">
+        <TopNav />
+        
+        <main className="pb-16 md:pb-0">
           <Routes>
             {/* Public routes */}
             <Route path="/" element={<Home />} />
             <Route path="/catalog" element={<Catalog />} />
-            <Route path="/product/:id" element={<ProductPage />} />
+            <Route path="/product/:slug" element={<ProductPage />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             
@@ -144,6 +134,11 @@ function App() {
             <Route path="/admin/products/edit/:id" element={
               <AdminRoute>
                 <EditProduct />
+              </AdminRoute>
+            } />
+            <Route path="/admin/strains" element={
+              <AdminRoute>
+                <AdminStrains />
               </AdminRoute>
             } />
             <Route path="/admin/orders" element={

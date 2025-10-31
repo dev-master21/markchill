@@ -6,16 +6,21 @@ import { ResultSetHeader, RowDataPacket } from 'mysql2';
 export class StrainService {
   static async create(strainData: Partial<Strain>): Promise<Strain> {
     const [result] = await pool.execute<ResultSetHeader>(
-      `INSERT INTO strains (name, description, effects, flavors, thc_content, cbd_content, type)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO strains (
+        name, description, type, thc_content, cbd_content, 
+        terpenes, aroma_taste, effects, flavors
+      )
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         strainData.name,
         strainData.description || null,
-        JSON.stringify(strainData.effects || []),
-        JSON.stringify(strainData.flavors || []),
+        strainData.type || null,
         strainData.thc_content || null,
         strainData.cbd_content || null,
-        strainData.type || null
+        strainData.terpenes || null,
+        strainData.aroma_taste || null,
+        strainData.effects || null,
+        JSON.stringify(strainData.flavors || [])
       ]
     );
     
@@ -29,8 +34,7 @@ export class StrainService {
     
     return rows.map(row => ({
       ...row,
-      effects: JSON.parse(row.effects || '[]'),
-      flavors: JSON.parse(row.flavors || '[]')
+      flavors: row.flavors ? JSON.parse(row.flavors) : []
     })) as Strain[];
   }
   
@@ -47,8 +51,7 @@ export class StrainService {
     const strain = rows[0];
     return {
       ...strain,
-      effects: JSON.parse(strain.effects || '[]'),
-      flavors: JSON.parse(strain.flavors || '[]')
+      flavors: strain.flavors ? JSON.parse(strain.flavors) : []
     } as Strain;
   }
   
@@ -56,18 +59,13 @@ export class StrainService {
     const updates: string[] = [];
     const values: any[] = [];
     
-    const fields = ['name', 'description', 'thc_content', 'cbd_content', 'type'];
+    const fields = ['name', 'description', 'type', 'thc_content', 'cbd_content', 'terpenes', 'aroma_taste', 'effects'];
     
     for (const field of fields) {
       if (strainData[field as keyof Strain] !== undefined) {
         updates.push(`${field} = ?`);
         values.push(strainData[field as keyof Strain]);
       }
-    }
-    
-    if (strainData.effects) {
-      updates.push('effects = ?');
-      values.push(JSON.stringify(strainData.effects));
     }
     
     if (strainData.flavors) {
@@ -98,5 +96,19 @@ export class StrainService {
     if (result.affectedRows === 0) {
       throw new AppError('Strain not found', 404);
     }
+  }
+  
+  // Новый метод для получения шаблона сорта
+  static async getStrainTemplate(id: number): Promise<Partial<Strain>> {
+    const strain = await this.findById(id);
+    
+    // Возвращаем только те поля, которые должны применяться к продукту
+    return {
+      thc_content: strain.thc_content,
+      cbd_content: strain.cbd_content,
+      effects: strain.effects,
+      terpenes: strain.terpenes,
+      aroma_taste: strain.aroma_taste
+    };
   }
 }

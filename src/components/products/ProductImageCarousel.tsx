@@ -1,4 +1,3 @@
-// src/components/products/ProductImageCarousel.tsx
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 
@@ -21,10 +20,10 @@ const ProductImageCarousel: React.FC<ProductImageCarouselProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const animationRef = useRef<number | null>(null);
   const lastFrameTimeRef = useRef<number>(0);
-  const imageRefs = useRef<HTMLImageElement[]>([]);
+  const imagesPreloaded = useRef<boolean>(false);
   
-  const totalFrames = 61; // 0000.png до 0060.png = 61 кадр
-  const frameDuration = 5000 / totalFrames; // 5 секунд на все кадры
+  const totalFrames = 301; // 0000.png до 0300.png = 301 кадр
+  const frameDuration = 10000 / totalFrames; // 10 секунд на полный оборот
   
   // Мапинг типов на папки
   const folderMap = {
@@ -56,34 +55,44 @@ const ProductImageCarousel: React.FC<ProductImageCarouselProps> = ({
 
   // Предзагрузка всех изображений
   useEffect(() => {
+    if (imagesPreloaded.current) return;
+    
     const folder = folderMap[strainType];
     let loadedCount = 0;
     const imagePaths: string[] = [];
-    const imageElements: HTMLImageElement[] = [];
+    let isMounted = true;
 
     const preloadImages = async () => {
       const promises = [];
       
-      for (let i = 0; i <= 60; i++) {
+      // Создаем пути для всех кадров
+      for (let i = 0; i <= 300; i++) {
         const frameNumber = String(i).padStart(4, '0');
         const imagePath = `/images/${folder}/${frameNumber}.png`;
         imagePaths[i] = imagePath;
         
-        const promise = new Promise<void>((resolve, reject) => {
+        const promise = new Promise<void>((resolve) => {
           const img = new Image();
-          img.src = imagePath;
-          imageElements[i] = img;
           
           img.onload = () => {
             loadedCount++;
-            setLoadProgress(Math.round((loadedCount / totalFrames) * 100));
+            if (isMounted) {
+              setLoadProgress(Math.round((loadedCount / totalFrames) * 100));
+            }
             resolve();
           };
           
           img.onerror = () => {
             console.error(`Failed to load image: ${imagePath}`);
-            reject(new Error(`Failed to load ${imagePath}`));
+            loadedCount++;
+            if (isMounted) {
+              setLoadProgress(Math.round((loadedCount / totalFrames) * 100));
+            }
+            resolve();
           };
+          
+          // Загружаем изображение
+          img.src = imagePath;
         });
         
         promises.push(promise);
@@ -91,26 +100,31 @@ const ProductImageCarousel: React.FC<ProductImageCarouselProps> = ({
 
       try {
         await Promise.all(promises);
-        setLoadedImages(imagePaths);
-        imageRefs.current = imageElements;
-        setIsLoading(false);
+        if (isMounted) {
+          setLoadedImages(imagePaths);
+          setIsLoading(false);
+          imagesPreloaded.current = true;
+        }
       } catch (error) {
         console.error('Error preloading images:', error);
-        setIsLoading(false);
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
     };
 
     preloadImages();
 
     return () => {
+      isMounted = false;
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current);
         animationRef.current = null;
       }
     };
-  }, [strainType, totalFrames]);
+  }, [strainType]);
 
-  // Автоматическая анимация - всегда активна
+  // Автоматическая анимация
   useEffect(() => {
     if (isLoading || isDragging) {
       if (animationRef.current) {
@@ -128,7 +142,10 @@ const ProductImageCarousel: React.FC<ProductImageCarouselProps> = ({
       const elapsed = timestamp - lastFrameTimeRef.current;
 
       if (elapsed >= frameDuration) {
-        setCurrentFrame(prev => (prev + 1) % totalFrames);
+        setCurrentFrame(prevFrame => {
+          const nextFrame = (prevFrame + 1) % totalFrames;
+          return nextFrame;
+        });
         lastFrameTimeRef.current = timestamp;
       }
 
@@ -164,24 +181,23 @@ const ProductImageCarousel: React.FC<ProductImageCarouselProps> = ({
     if (!isDragging) return;
 
     const deltaX = e.clientX - dragStartX;
-    // Чувствительность: 5 пикселей = 1 кадр
-    const framesDelta = Math.round(deltaX / 5);
+    const framesDelta = Math.round(deltaX / 2);
     
-    // Вычисляем новый кадр с зацикливанием
-    let newFrame = (dragStartFrame - framesDelta) % totalFrames;
-    if (newFrame < 0) newFrame += totalFrames;
+    let newFrame = dragStartFrame - framesDelta;
+    
+    while (newFrame < 0) newFrame += totalFrames;
+    while (newFrame >= totalFrames) newFrame -= totalFrames;
     
     setCurrentFrame(newFrame);
   }, [isDragging, dragStartX, dragStartFrame, totalFrames]);
 
-  // Обработка окончания перетаскивания - анимация продолжается
+  // Обработка окончания перетаскивания
   const handleMouseUp = useCallback(() => {
     setIsDragging(false);
-    // Сбрасываем таймер чтобы анимация продолжилась плавно
     lastFrameTimeRef.current = 0;
   }, []);
 
-  // Добавляем глобальные обработчики для мыши
+  // Глобальные обработчики для мыши
   useEffect(() => {
     if (isDragging) {
       document.addEventListener('mousemove', handleMouseMove);
@@ -216,17 +232,18 @@ const ProductImageCarousel: React.FC<ProductImageCarouselProps> = ({
     
     const touch = e.touches[0];
     const deltaX = touch.clientX - dragStartX;
-    const framesDelta = Math.round(deltaX / 5);
+    const framesDelta = Math.round(deltaX / 2);
     
-    let newFrame = (dragStartFrame - framesDelta) % totalFrames;
-    if (newFrame < 0) newFrame += totalFrames;
+    let newFrame = dragStartFrame - framesDelta;
+    
+    while (newFrame < 0) newFrame += totalFrames;
+    while (newFrame >= totalFrames) newFrame -= totalFrames;
     
     setCurrentFrame(newFrame);
   }, [isDragging, dragStartX, dragStartFrame, totalFrames]);
 
   const handleTouchEnd = useCallback(() => {
     setIsDragging(false);
-    // Сбрасываем таймер чтобы анимация продолжилась плавно
     lastFrameTimeRef.current = 0;
   }, []);
 
@@ -322,14 +339,14 @@ const ProductImageCarousel: React.FC<ProductImageCarouselProps> = ({
           <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-transparent" />
         </div>
         
-        {/* Контейнер для изображения */}
+        {/* Контейнер для изображений */}
         <div className="relative w-full h-full flex items-center justify-center">
-          {/* Все изображения предзагружены, показываем только текущее */}
+          {/* Все изображения загружены один раз, показываем через display */}
           {!isLoading && loadedImages.length > 0 && (
             <div className="relative w-full h-full flex items-center justify-center p-6">
               {loadedImages.map((imagePath, index) => (
                 <img 
-                  key={imagePath}
+                  key={`frame-${index}`} // Статический ключ
                   src={imagePath}
                   alt={`${strainType} product frame ${index}`}
                   className="absolute max-w-full max-h-full object-contain select-none pointer-events-none"
@@ -340,7 +357,8 @@ const ProductImageCarousel: React.FC<ProductImageCarouselProps> = ({
                     transform: 'scale(0.95)',
                     imageRendering: 'crisp-edges',
                     WebkitBackfaceVisibility: 'hidden',
-                    backfaceVisibility: 'hidden'
+                    backfaceVisibility: 'hidden',
+                    willChange: 'display'
                   }}
                 />
               ))}
@@ -365,7 +383,9 @@ const ProductImageCarousel: React.FC<ProductImageCarouselProps> = ({
                   transition={{ duration: 0.3, ease: "easeOut" }}
                 />
               </div>
-              <p className="text-xs text-white/40 mt-2">{loadProgress}%</p>
+              <p className="text-xs text-white/40 mt-2">
+                {loadProgress}% ({Math.round(loadProgress * totalFrames / 100)} / {totalFrames} frames)
+              </p>
             </div>
           </div>
         )}
@@ -383,7 +403,7 @@ const ProductImageCarousel: React.FC<ProductImageCarouselProps> = ({
               {strainType} Collection
             </h3>
             <p className="text-xs text-white/40 uppercase tracking-[0.2em] font-light">
-              Premium Edition
+              Premium Edition • 360° View
             </p>
           </motion.div>
         </div>

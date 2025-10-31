@@ -21,7 +21,7 @@ import AdminSidebar from '../../components/admin/AdminSidebar';
 import AnimatedBackground from '../../components/common/AnimatedBackground';
 import productService from '../../services/product.service';
 import categoryService from '../../services/category.service';
-import strainService from '../../services/strain.service';
+import strainService, { Strain } from '../../services/strain.service';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
 
@@ -43,7 +43,7 @@ const EditProduct: React.FC = () => {
   const [isLoadingProduct, setIsLoadingProduct] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [categories, setCategories] = useState<any[]>([]);
-  const [strains, setStrains] = useState<any[]>([]);
+  const [strains, setStrains] = useState<Strain[]>([]);
   const [imageErrors, setImageErrors] = useState<Set<string>>(new Set());
   
   const [formData, setFormData] = useState({
@@ -101,6 +101,24 @@ const EditProduct: React.FC = () => {
       setCategories(categoriesData);
       setStrains(strainsData);
       
+      // Парсим features
+      let parsedFeatures = [''];
+      if (productData.features) {
+        if (typeof productData.features === 'string') {
+          try {
+            parsedFeatures = JSON.parse(productData.features);
+          } catch (e) {
+            parsedFeatures = [productData.features];
+          }
+        } else if (Array.isArray(productData.features)) {
+          parsedFeatures = productData.features;
+        }
+      }
+      
+      if (parsedFeatures.length === 0) {
+        parsedFeatures = [''];
+      }
+      
       // Заполняем форму данными продукта
       setFormData({
         name: productData.name || '',
@@ -114,7 +132,7 @@ const EditProduct: React.FC = () => {
         thc: productData.thc || '',
         cbd: productData.cbd || '',
         model_3d: productData.model_3d || '',
-        features: productData.features?.length > 0 ? productData.features : [''],
+        features: parsedFeatures,
         strains: productStrains.map((s: any) => s.id),
         strain_id: productData.strain_id || null,
         is_active: productData.is_active !== false
@@ -266,8 +284,12 @@ const EditProduct: React.FC = () => {
       const data = new FormData();
       
       Object.keys(formData).forEach(key => {
-        if (key === 'features' || key === 'strains') {
-          data.append(key, JSON.stringify(formData[key as keyof typeof formData]));
+        if (key === 'features') {
+          // Фильтруем пустые features
+          const validFeatures = formData.features.filter(f => f.trim() !== '');
+          data.append(key, JSON.stringify(validFeatures));
+        } else if (key === 'strains') {
+          data.append(key, JSON.stringify(formData.strains));
         } else if (key === 'strain_id') {
           data.append(key, formData.strain_id ? String(formData.strain_id) : '');
         } else {
@@ -492,13 +514,13 @@ const EditProduct: React.FC = () => {
                       </div>
                       
                       <div>
-                        <label className="text-sm text-gray-400 mb-2 block">3D Model URL</label>
+                        <label className="text-sm text-gray-400 mb-2 block">3D Model Filename</label>
                         <input
                           type="text"
                           value={formData.model_3d}
                           onChange={(e) => setFormData({ ...formData, model_3d: e.target.value })}
                           className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl focus:outline-none focus:border-primary/50 transition-colors"
-                          placeholder="/models/product.glb"
+                          placeholder="e.g., plastic-bags-white.glb"
                         />
                       </div>
                       
@@ -638,7 +660,7 @@ const EditProduct: React.FC = () => {
                         <label className="text-sm text-gray-400 mb-2 block">
                           Select strains available for this product
                         </label>
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-2 gap-3 max-h-64 overflow-y-auto">
                           {strains.map(strain => (
                             <label
                               key={strain.id}
@@ -695,45 +717,59 @@ const EditProduct: React.FC = () => {
                     </div>
                   </motion.div>
                   
-                  {/* Features */}
+                  {/* Key Features - ДОБАВЛЕНО */}
                   <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.5 }}
                     className="glass-dark rounded-2xl p-6"
                   >
-                    <h2 className="text-xl font-bold mb-4">Features</h2>
+                    <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+                      <Sparkles className="w-5 h-5 text-primary" />
+                      Key Features
+                    </h2>
                     
-                    <div className="space-y-3">
-                      {formData.features.map((feature, index) => (
-                        <div key={index} className="flex gap-2">
-                          <input
-                            type="text"
-                            value={feature}
-                            onChange={(e) => handleFeatureChange(index, e.target.value)}
-                            className="flex-1 px-4 py-3 bg-white/5 border border-white/10 rounded-xl focus:outline-none focus:border-primary/50 transition-colors"
-                            placeholder="Feature description"
-                          />
-                          {formData.features.length > 1 && (
-                            <button
-                              type="button"
-                              onClick={() => removeFeature(index)}
-                              className="p-3 bg-red-500/20 text-red-400 rounded-xl hover:bg-red-500/30 transition-colors"
-                            >
-                              <X className="w-4 h-4" />
-                            </button>
-                          )}
-                        </div>
-                      ))}
-                      
-                      <button
-                        type="button"
-                        onClick={addFeature}
-                        className="w-full py-3 bg-primary/20 text-primary rounded-xl hover:bg-primary/30 transition-colors flex items-center justify-center gap-2"
-                      >
-                        <Plus className="w-4 h-4" />
-                        Add Feature
-                      </button>
+                    <div className="space-y-4">
+                      <div className="space-y-3">
+                        {formData.features.map((feature, index) => (
+                          <div key={index} className="flex gap-2">
+                            <input
+                              type="text"
+                              value={feature}
+                              onChange={(e) => handleFeatureChange(index, e.target.value)}
+                              className="flex-1 px-4 py-3 bg-white/5 border border-white/10 rounded-xl focus:outline-none focus:border-primary/50 transition-colors"
+                              placeholder="e.g., Name: Zip-lock 3.5 g"
+                            />
+                            {formData.features.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => removeFeature(index)}
+                                className="p-3 bg-red-500/20 text-red-400 rounded-xl hover:bg-red-500/30 transition-colors"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                        
+                        <button
+                          type="button"
+                          onClick={addFeature}
+                          className="w-full py-3 bg-primary/20 text-primary rounded-xl hover:bg-primary/30 transition-colors flex items-center justify-center gap-2"
+                        >
+                          <Plus className="w-4 h-4" />
+                          Add Feature
+                        </button>
+                      </div>
+
+                      <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-xl">
+                        <p className="text-xs text-blue-300 mb-1">💡 Formatting tips:</p>
+                        <ul className="text-xs text-blue-200 space-y-0.5 list-disc list-inside">
+                          <li>Use "Label: Value" format</li>
+                          <li>Each line = separate feature with checkmark</li>
+                          <li>Empty fields are ignored</li>
+                        </ul>
+                      </div>
                     </div>
                   </motion.div>
                   

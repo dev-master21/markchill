@@ -22,8 +22,8 @@ const ProductImageCarousel: React.FC<ProductImageCarouselProps> = ({
   const lastFrameTimeRef = useRef<number>(0);
   const imagesPreloaded = useRef<boolean>(false);
   
-  const totalFrames = 301; // 0000.png до 0300.png = 301 кадр
-  const frameDuration = 10000 / totalFrames; // 10 секунд на полный оборот
+  const totalFrames = 121; // 0000.png до 0300.png = 301 кадр
+  const frameDuration = 5000 / totalFrames; // 10 секунд на полный оборот
   
   // Мапинг типов на папки
   const folderMap = {
@@ -66,7 +66,7 @@ const ProductImageCarousel: React.FC<ProductImageCarouselProps> = ({
       const promises = [];
       
       // Создаем пути для всех кадров
-      for (let i = 0; i <= 300; i++) {
+      for (let i = 0; i <= 120; i++) {
         const frameNumber = String(i).padStart(4, '0');
         const imagePath = `/images/${folder}/${frameNumber}.png`;
         imagePaths[i] = imagePath;

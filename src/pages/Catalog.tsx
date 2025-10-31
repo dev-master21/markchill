@@ -1,351 +1,236 @@
-// src/pages/Catalog.tsx
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useLocation } from 'react-router-dom';
-import { 
-  Package, 
-  Box, 
-  Cigarette, 
-  Hash, 
-  Sparkles,
-  ChevronLeft,
-  Filter,
-  ArrowRight
-} from 'lucide-react';
+import { Package } from 'lucide-react';
 import ProductCard from '../components/products/ProductCard';
 import { useProductsStore } from '../store/productsStore';
-import Product3DView from '../components/products/Product3DView';
 
-// Product types
-interface ProductType {
-  id: string;
-  name: string;
-  icon: typeof Package;
-  description: string;
-}
-
-const productTypes: ProductType[] = [
-  {
-    id: 'plastic-bags',
-    name: 'Plastic Bags',
-    icon: Package,
-    description: 'Airtight packaging for freshness'
-  },
-  {
-    id: 'boxes',
-    name: 'Boxes with Tubes',
-    icon: Box,
-    description: 'Premium packaging with tubes'
-  },
-  {
-    id: 'nano-blunts',
-    name: 'Nano Blunts',
-    icon: Cigarette,
-    description: 'Compact blunts'
-  },
-  {
-    id: 'hash-rosin',
-    name: 'HASH/ROSIN',
-    icon: Hash,
-    description: 'Premium concentrates'
-  },
-  {
-    id: 'big-blunts',
-    name: 'Big Blunts',
-    icon: Sparkles,
-    description: 'Premium large-size blunts'
-  }
-];
+type StrainFilter = 'ALL' | 'CYAN' | 'WHITE' | 'BLACK';
 
 const Catalog: React.FC = () => {
-  const location = useLocation();
-  const { products } = useProductsStore();
-  
-  const initialStrainType = location.state?.strainType || null;
-  
-  const [selectedStrain, setSelectedStrain] = useState<'CYAN' | 'WHITE' | 'BLACK' | null>(initialStrainType);
-  const [selectedProductType, setSelectedProductType] = useState<string | null>(null);
-  const [showFilters, setShowFilters] = useState(false);
+  const { products, fetchProducts } = useProductsStore();
+  const [selectedFilter, setSelectedFilter] = useState<StrainFilter>('ALL');
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    const loadProducts = async () => {
+      setIsLoading(true);
+      await fetchProducts();
+      setIsLoading(false);
+    };
+    
+    loadProducts();
     window.scrollTo(0, 0);
-  }, []);
+  }, [fetchProducts]);
 
-  // Strain information
-  const strainInfo = {
-    CYAN: {
+  // Фильтруем продукты по выбранной категории
+  const filteredProducts = selectedFilter === 'ALL' 
+    ? products 
+    : products.filter(product => product.type === selectedFilter);
+
+  // Информация о категориях для кнопок фильтра
+  const filterButtons = [
+    {
+      id: 'ALL' as StrainFilter,
+      name: 'All Products',
+      gradient: 'from-gray-600 to-gray-800',
+      hoverGlow: 'rgba(156, 163, 175, 0.3)'
+    },
+    {
+      id: 'CYAN' as StrainFilter,
       name: 'Cyan Edition',
       subtitle: 'Hybrid Strains',
       gradient: 'from-cyan-400 to-blue-600',
-      bgGradient: 'from-cyan-400/10 to-blue-600/10',
-      description: 'Perfect balance of effects',
-      productType: 'blunts'
+      hoverGlow: 'rgba(6, 182, 212, 0.4)'
     },
-    WHITE: {
-      name: 'White Edition', 
+    {
+      id: 'WHITE' as StrainFilter,
+      name: 'White Edition',
       subtitle: 'Sativa Strains',
       gradient: 'from-gray-100 to-white',
-      bgGradient: 'from-gray-100/10 to-white/10',
-      description: 'Energy and focus',
-      productType: 'flowers'
+      hoverGlow: 'rgba(255, 255, 255, 0.3)',
+      isDark: false
     },
-    BLACK: {
+    {
+      id: 'BLACK' as StrainFilter,
       name: 'Black Edition',
       subtitle: 'Indica Strains',
       gradient: 'from-gray-700 to-black',
-      bgGradient: 'from-gray-700/10 to-black/10',
-      description: 'Deep relaxation',
-      productType: 'prerolls'
+      hoverGlow: 'rgba(120, 120, 120, 0.3)'
     }
-  };
-
-  // Filter products
-  const filteredProducts = products.filter(product => {
-    if (selectedStrain && product.type !== selectedStrain) return false;
-    if (selectedProductType && product.productCategory !== selectedProductType) {
-      return false;
-    }
-    return true;
-  });
-
-  const handleStrainSelect = (strain: 'CYAN' | 'WHITE' | 'BLACK') => {
-    setSelectedStrain(strain);
-    setSelectedProductType(null);
-  };
-
-  const handleBackToStrains = () => {
-    setSelectedStrain(null);
-    setSelectedProductType(null);
-  };
+  ];
 
   return (
     <div className="min-h-screen bg-black pt-24 lg:pt-28 pb-24">
       <div className="container mx-auto px-4">
         
-        {/* If no strain selected - show strain selection */}
-        {!selectedStrain ? (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-          >
-            {/* Header */}
-            <div className="text-center mb-16">
-              <motion.h1
-                initial={{ opacity: 0, y: -20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="text-5xl lg:text-6xl font-bold mb-4"
-              >
-                <span className="gradient-text">Product</span> Catalog
-              </motion.h1>
-              <p className="text-xl text-gray-400">Choose strain category</p>
-            </div>
+        {/* Header */}
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-center mb-12"
+        >
+          <h1 className="text-4xl lg:text-6xl font-bold mb-4">
+            <span className="text-white">Product </span>
+            <span className="gradient-text">Catalog</span>
+          </h1>
+          <p className="text-xl text-gray-400">
+            Choose strain category
+          </p>
+        </motion.div>
 
-            {/* Strain Categories */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
-              {Object.entries(strainInfo).map(([key, info], index) => (
-                <motion.div
-                  key={key}
-                  initial={{ opacity: 0, y: 50 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.1 }}
-                  whileHover={{ y: -10 }}
-                  onClick={() => handleStrainSelect(key as 'CYAN' | 'WHITE' | 'BLACK')}
-                  className="cursor-pointer group"
-                >
-                  <div className={`relative h-full glass-dark rounded-3xl p-8 overflow-hidden border border-white/10 hover:border-white/20 transition-all duration-500`}>
-                    {/* Background Effect */}
-                    <div className={`absolute inset-0 bg-gradient-to-br ${info.bgGradient} opacity-0 group-hover:opacity-100 transition-opacity duration-500`} />
-                    
-                    {/* 3D Model */}
-                    <div className="relative h-48 mb-6">
-                      <Product3DView 
-                        productType={info.productType}
-                        minimal={true}
-                      />
-                    </div>
-
-                    {/* Content */}
-                    <div className="relative z-10">
-                      <h3 className={`text-2xl font-bold mb-2 bg-gradient-to-r ${info.gradient} bg-clip-text text-transparent`}>
-                        {info.name}
-                      </h3>
-                      <p className="text-sm uppercase tracking-widest text-gray-500 mb-3">
-                        {info.subtitle}
-                      </p>
-                      <p className="text-gray-400 mb-6">
-                        {info.description}
-                      </p>
-                      
-                      {/* CTA */}
-                      <motion.div
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        className={`w-full py-3 px-6 rounded-xl bg-gradient-to-r ${info.gradient} text-center font-semibold transition-all duration-300 ${
-                          key === 'WHITE' ? 'text-black' : 'text-white'
-                        }`}
-                      >
-                        <span className="flex items-center justify-center gap-2">
-                          Select
-                          <ArrowRight className="w-4 h-4" />
-                        </span>
-                      </motion.div>
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-          </motion.div>
-        ) : (
-          /* If strain selected - show product types and products */
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-          >
-            {/* Header with Back Button */}
-            <div className="mb-12">
+        {/* Filter Buttons */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="flex flex-wrap justify-center gap-4 mb-12"
+        >
+          {filterButtons.map((filter, index) => {
+            const isSelected = selectedFilter === filter.id;
+            const isWhite = filter.isDark === false;
+            
+            return (
               <motion.button
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={handleBackToStrains}
-                className="flex items-center gap-2 mb-6 text-gray-400 hover:text-white transition-colors"
-              >
-                <ChevronLeft className="w-5 h-5" />
-                <span>Back to categories</span>
-              </motion.button>
-
-              <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
-                <div>
-                  <h1 className={`text-4xl lg:text-5xl font-bold mb-2 bg-gradient-to-r ${strainInfo[selectedStrain].gradient} bg-clip-text text-transparent`}>
-                    {strainInfo[selectedStrain].name}
-                  </h1>
-                  <p className="text-xl text-gray-400">
-                    {strainInfo[selectedStrain].subtitle}
-                  </p>
-                </div>
-
-                {/* Filter Button for Mobile */}
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => setShowFilters(!showFilters)}
-                  className="lg:hidden flex items-center gap-2 px-6 py-3 glass-dark rounded-xl"
-                >
-                  <Filter className="w-5 h-5" />
-                  <span>Filters</span>
-                </motion.button>
-              </div>
-            </div>
-
-            {/* Product Types Filter */}
-            <AnimatePresence>
-              {(showFilters || window.innerWidth >= 1024) && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="mb-12"
-                >
-                  <h3 className="text-lg font-semibold text-gray-300 mb-6">Product Types:</h3>
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-                    {productTypes.map((type) => {
-                      const Icon = type.icon;
-                      const isSelected = selectedProductType === type.id;
-                      
-                      return (
-                        <motion.button
-                          key={type.id}
-                          whileHover={{ scale: 1.05 }}
-                          whileTap={{ scale: 0.95 }}
-                          onClick={() => setSelectedProductType(isSelected ? null : type.id)}
-                          className={`relative p-4 rounded-xl transition-all duration-300 ${
-                            isSelected
-                              ? 'glass-dark bg-primary/20 border-primary'
-                              : 'glass-dark hover:bg-white/10'
-                          } border border-white/10`}
-                        >
-                          <Icon className={`w-6 h-6 mb-2 mx-auto ${
-                            isSelected ? 'text-primary' : 'text-gray-400'
-                          }`} />
-                          <p className={`text-sm font-medium ${
-                            isSelected ? 'text-white' : 'text-gray-400'
-                          }`}>
-                            {type.name}
-                          </p>
-                          <p className="text-xs text-gray-500 mt-1">
-                            {type.description}
-                          </p>
-                        </motion.button>
-                      );
-                    })}
-                  </div>
-
-                  {/* Clear Filter */}
-                  {selectedProductType && (
-                    <motion.button
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      onClick={() => setSelectedProductType(null)}
-                      className="mt-4 text-sm text-primary hover:text-primary/80 transition-colors"
-                    >
-                      Clear filter ✕
-                    </motion.button>
-                  )}
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {/* Results Count */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="text-center mb-8 text-gray-400"
-            >
-              {filteredProducts.length} {filteredProducts.length === 1 ? 'product' : 'products'}
-            </motion.div>
-
-            {/* Products Grid */}
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={`${selectedStrain}-${selectedProductType}`}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                transition={{ duration: 0.3 }}
-                className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
-              >
-                {filteredProducts.map((product, index) => (
-                  <ProductCard key={product.id} product={product} index={index} />
-                ))}
-              </motion.div>
-            </AnimatePresence>
-
-            {/* Empty State */}
-            {filteredProducts.length === 0 && (
-              <motion.div
+                key={filter.id}
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
-                className="text-center py-20"
+                transition={{ delay: index * 0.1 }}
+                whileHover={{ scale: 1.05, y: -2 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => setSelectedFilter(filter.id)}
+                className="relative group"
               >
-                <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-gray-800 flex items-center justify-center">
-                  <Package className="w-12 h-12 text-gray-600" />
-                </div>
-                <h3 className="text-2xl font-semibold mb-2">No products</h3>
-                <p className="text-gray-400 mb-6">
-                  {selectedProductType 
-                    ? 'No products in this category yet'
-                    : 'No products in this collection yet'}
-                </p>
-                <button
-                  onClick={() => setSelectedProductType(null)}
-                  className="px-6 py-3 gradient-primary text-white font-semibold rounded-xl hover:shadow-[0_0_30px_rgba(35,192,219,0.5)] transition-all duration-300"
+                {/* Background gradient */}
+                <div 
+                  className={`relative px-6 py-4 rounded-2xl border-2 transition-all duration-300 min-w-[160px] ${
+                    isSelected
+                      ? 'border-transparent shadow-xl'
+                      : 'border-white/10 hover:border-white/20'
+                  }`}
+                  style={{
+                    background: isSelected 
+                      ? `linear-gradient(to right, var(--tw-gradient-stops))` 
+                      : 'rgba(255, 255, 255, 0.02)',
+                  }}
                 >
-                  Show all products
-                </button>
-              </motion.div>
+                  {isSelected && (
+                    <div 
+                      className={`absolute inset-0 rounded-2xl bg-gradient-to-r ${filter.gradient}`}
+                      style={{ zIndex: -1 }}
+                    />
+                  )}
+                  
+                  {/* Content */}
+                  <div className="relative z-10">
+                    <p className={`font-bold text-sm lg:text-base transition-colors ${
+                      isSelected
+                        ? isWhite ? 'text-black' : 'text-white'
+                        : 'text-gray-400 group-hover:text-white'
+                    }`}>
+                      {filter.name}
+                    </p>
+                    {filter.subtitle && (
+                      <p className={`text-xs mt-1 transition-colors ${
+                        isSelected
+                          ? isWhite ? 'text-black/60' : 'text-white/60'
+                          : 'text-gray-500 group-hover:text-gray-400'
+                      }`}>
+                        {filter.subtitle}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Glow effect */}
+                  {isSelected && (
+                    <motion.div
+                      layoutId="filterGlow"
+                      className="absolute inset-0 rounded-2xl -z-10"
+                      style={{
+                        boxShadow: `0 0 40px ${filter.hoverGlow}`
+                      }}
+                      transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                    />
+                  )}
+                </div>
+              </motion.button>
+            );
+          })}
+        </motion.div>
+
+        {/* Results Count */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.2 }}
+          className="text-center mb-8"
+        >
+          <p className="text-gray-400">
+            <span className="text-white font-semibold">{filteredProducts.length}</span>
+            {' '}{filteredProducts.length === 1 ? 'product' : 'products'}
+            {selectedFilter !== 'ALL' && (
+              <span className="text-primary ml-2">
+                in {filterButtons.find(f => f.id === selectedFilter)?.name}
+              </span>
+            )}
+          </p>
+        </motion.div>
+
+        {/* Loading State */}
+        {isLoading && (
+          <div className="flex items-center justify-center py-20">
+            <div className="relative">
+              <div className="w-16 h-16 border-4 border-primary/20 rounded-full"></div>
+              <div className="absolute top-0 left-0 w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+            </div>
+          </div>
+        )}
+
+        {/* Products Grid */}
+        {!isLoading && (
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={selectedFilter}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.3 }}
+              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
+            >
+              {filteredProducts.map((product, index) => (
+                <ProductCard 
+                  key={product.id} 
+                  product={product} 
+                  index={index} 
+                />
+              ))}
+            </motion.div>
+          </AnimatePresence>
+        )}
+
+        {/* Empty State */}
+        {!isLoading && filteredProducts.length === 0 && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="text-center py-20"
+          >
+            <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-white/5 flex items-center justify-center">
+              <Package className="w-12 h-12 text-gray-600" />
+            </div>
+            <h3 className="text-2xl font-semibold mb-2 text-white">No products found</h3>
+            <p className="text-gray-400 mb-6">
+              {selectedFilter === 'ALL' 
+                ? 'No products available at the moment'
+                : `No products in ${filterButtons.find(f => f.id === selectedFilter)?.name} yet`
+              }
+            </p>
+            {selectedFilter !== 'ALL' && (
+              <button
+                onClick={() => setSelectedFilter('ALL')}
+                className="px-6 py-3 gradient-primary text-white font-semibold rounded-xl hover:shadow-[0_0_30px_rgba(35,192,219,0.5)] transition-all duration-300"
+              >
+                Show all products
+              </button>
             )}
           </motion.div>
         )}

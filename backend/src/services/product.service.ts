@@ -13,7 +13,6 @@ export class ProductService {
       
       const slug = productData.slug || slugify(productData.name!);
       
-      // Insert product with product_category and model_3d
       const [result] = await connection.execute<ResultSetHeader>(
         `INSERT INTO products (
           name, slug, type, product_category, category_id, description, 
@@ -40,14 +39,12 @@ export class ProductService {
       
       const productId = result.insertId;
       
-      // Create inventory record with initial stock
       const initialStock = productData.stock || 0;
       await connection.execute(
         'INSERT INTO inventory (product_id, quantity, low_stock_threshold) VALUES (?, ?, ?)',
         [productId, initialStock, 10]
       );
       
-      // Add strains if provided
       if (productData.strains && productData.strains.length > 0) {
         for (const strainId of productData.strains) {
           await connection.execute(
@@ -121,6 +118,15 @@ export class ProductService {
     const [rows] = await pool.execute<RowDataPacket[]>(query, params);
     
     for (const product of rows) {
+      // Логируем что приходит из базы
+      console.log(`[Backend] Product ${product.id} - gallery from DB:`, {
+        type: typeof product.gallery,
+        value: product.gallery,
+        raw: product.gallery,
+        isBuffer: Buffer.isBuffer(product.gallery),
+        length: product.gallery?.length
+      });
+
       const [strainRows] = await pool.execute<RowDataPacket[]>(
         `SELECT s.* FROM strains s
          JOIN product_strains ps ON s.id = ps.strain_id
@@ -131,20 +137,83 @@ export class ProductService {
       product.strains = strainRows;
       product.stock = product.stock_quantity || 0;
       
+      // Парсим gallery
       if (product.gallery) {
         try {
-          product.gallery = JSON.parse(product.gallery);
-        } catch {
+          // Если это строка - парсим
+          if (typeof product.gallery === 'string') {
+            const trimmed = product.gallery.trim();
+            if (trimmed && trimmed !== '[]' && trimmed !== 'null') {
+              product.gallery = JSON.parse(trimmed);
+              console.log(`[Backend] Product ${product.id} - parsed gallery (from string):`, product.gallery);
+            } else {
+              product.gallery = [];
+              console.log(`[Backend] Product ${product.id} - empty gallery string, set to []`);
+            }
+          }
+          // Если уже массив - оставляем как есть
+          else if (Array.isArray(product.gallery)) {
+            console.log(`[Backend] Product ${product.id} - gallery already array:`, product.gallery);
+            // Оставляем как есть
+          }
+          // Если Buffer - конвертируем в строку и парсим
+          else if (Buffer.isBuffer(product.gallery)) {
+            const str = product.gallery.toString('utf8');
+            console.log(`[Backend] Product ${product.id} - gallery is Buffer, converted to string:`, str);
+            if (str && str !== '[]' && str !== 'null') {
+              product.gallery = JSON.parse(str);
+              console.log(`[Backend] Product ${product.id} - parsed gallery (from Buffer):`, product.gallery);
+            } else {
+              product.gallery = [];
+            }
+          }
+          else {
+            console.log(`[Backend] Product ${product.id} - unknown gallery type, setting to []`);
+            product.gallery = [];
+          }
+        } catch (e) {
+          console.error(`[Backend] Product ${product.id} - Failed to parse gallery:`, e, 'Raw value:', product.gallery);
           product.gallery = [];
         }
+      } else {
+        console.log(`[Backend] Product ${product.id} - gallery is null/undefined`);
+        product.gallery = [];
       }
       
+      // Финальная проверка
+      if (!Array.isArray(product.gallery)) {
+        console.error(`[Backend] Product ${product.id} - gallery is not array after parsing! Type:`, typeof product.gallery, 'Value:', product.gallery);
+        product.gallery = [];
+      }
+
+      console.log(`[Backend] Product ${product.id} - final gallery:`, product.gallery);
+      
+      // Парсим features
       if (product.features) {
         try {
-          product.features = JSON.parse(product.features);
-        } catch {
+          if (typeof product.features === 'string') {
+            const trimmed = product.features.trim();
+            if (trimmed && trimmed !== '[]' && trimmed !== 'null') {
+              product.features = JSON.parse(trimmed);
+            } else {
+              product.features = [];
+            }
+          } else if (Buffer.isBuffer(product.features)) {
+            const str = product.features.toString('utf8');
+            if (str && str !== '[]' && str !== 'null') {
+              product.features = JSON.parse(str);
+            } else {
+              product.features = [];
+            }
+          } else if (!Array.isArray(product.features)) {
+            product.features = [];
+          }
+        } catch (e) {
+          console.error(`[Backend] Product ${product.id} - Failed to parse features:`, e);
           product.features = [];
         }
+      } else {
+        product.features = [];
       }
     }
     
@@ -170,7 +239,6 @@ export class ProductService {
     
     const product = rows[0];
     
-    // Получаем связанные сорта
     const [strainRows] = await pool.execute<RowDataPacket[]>(`
       SELECT s.* 
       FROM strains s
@@ -180,11 +248,25 @@ export class ProductService {
     
     product.strains = strainRows;
     
-    // Парсим gallery из JSON
+    // Парсим gallery
     if (product.gallery) {
       try {
         if (typeof product.gallery === 'string') {
-          product.gallery = JSON.parse(product.gallery);
+          const trimmed = product.gallery.trim();
+          if (trimmed && trimmed !== '[]' && trimmed !== 'null') {
+            product.gallery = JSON.parse(trimmed);
+          } else {
+            product.gallery = [];
+          }
+        } else if (Buffer.isBuffer(product.gallery)) {
+          const str = product.gallery.toString('utf8');
+          if (str && str !== '[]' && str !== 'null') {
+            product.gallery = JSON.parse(str);
+          } else {
+            product.gallery = [];
+          }
+        } else if (!Array.isArray(product.gallery)) {
+          product.gallery = [];
         }
       } catch (e) {
         console.error('Failed to parse gallery JSON:', e);
@@ -194,13 +276,28 @@ export class ProductService {
       product.gallery = [];
     }
     
-    // Парсим features из JSON
+    // Парсим features
     if (product.features) {
       try {
         if (typeof product.features === 'string') {
-          product.features = JSON.parse(product.features);
+          const trimmed = product.features.trim();
+          if (trimmed && trimmed !== '[]' && trimmed !== 'null') {
+            product.features = JSON.parse(trimmed);
+          } else {
+            product.features = [];
+          }
+        } else if (Buffer.isBuffer(product.features)) {
+          const str = product.features.toString('utf8');
+          if (str && str !== '[]' && str !== 'null') {
+            product.features = JSON.parse(str);
+          } else {
+            product.features = [];
+          }
+        } else if (!Array.isArray(product.features)) {
+          product.features = [];
         }
-      } catch {
+      } catch (e) {
+        console.error('Failed to parse features JSON:', e);
         product.features = [];
       }
     } else {
@@ -302,7 +399,6 @@ export class ProductService {
         );
       }
       
-      // Update stock if provided
       if (productData.stock !== undefined) {
         await connection.execute(
           'UPDATE inventory SET quantity = ? WHERE product_id = ?',
@@ -310,7 +406,6 @@ export class ProductService {
         );
       }
       
-      // Update strains if provided
       if (productData.strains) {
         await connection.execute(
           'DELETE FROM product_strains WHERE product_id = ?',

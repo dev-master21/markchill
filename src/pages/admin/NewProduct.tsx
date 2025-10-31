@@ -52,9 +52,10 @@ const NewProduct: React.FC = () => {
     cbd: '',
     model_3d: '',
     features: [''],
+    strains: [] as number[], // ВОССТАНОВЛЕНО: множественный выбор сортов
     strain_id: null as number | null,
     is_active: true,
-    // Добавляем поля из сорта
+    // ВОССТАНОВЛЕНО: поля из сорта
     terpenes: '',
     aroma_taste: '',
     effects: ''
@@ -87,6 +88,7 @@ const NewProduct: React.FC = () => {
     }
   };
 
+  // ВОССТАНОВЛЕНО: функция выбора сорта с шаблоном
   const handleStrainSelect = async (strainId: number) => {
     if (strainId === selectedStrain) return;
     
@@ -104,6 +106,7 @@ const NewProduct: React.FC = () => {
     }
   };
 
+  // ВОССТАНОВЛЕНО: функция применения шаблона сорта
   const applyStrainTemplate = async (strainId: number) => {
     try {
       const strain = strains.find(s => s.id === strainId);
@@ -122,6 +125,16 @@ const NewProduct: React.FC = () => {
     } catch (error) {
       toast.error('Failed to apply strain template');
     }
+  };
+
+  // ДОБАВЛЕНО: функция для множественного выбора сортов
+  const handleStrainToggle = (strainId: number) => {
+    setFormData(prev => ({
+      ...prev,
+      strains: prev.strains.includes(strainId)
+        ? prev.strains.filter(id => id !== strainId)
+        : [...prev.strains, strainId]
+    }));
   };
 
   const handleMainImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -164,7 +177,7 @@ const NewProduct: React.FC = () => {
 
   const removeFeature = (index: number) => {
     const newFeatures = formData.features.filter((_, i) => i !== index);
-    setFormData({ ...formData, features: newFeatures });
+    setFormData({ ...formData, features: newFeatures.length > 0 ? newFeatures : [''] });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -185,10 +198,14 @@ const NewProduct: React.FC = () => {
     try {
       const data = new FormData();
       
-      // Add all form fields
+      // Добавляем все поля
       Object.keys(formData).forEach(key => {
         if (key === 'features') {
-          data.append(key, JSON.stringify(formData[key as keyof typeof formData]));
+          // Фильтруем пустые features
+          const validFeatures = formData.features.filter(f => f.trim() !== '');
+          data.append(key, JSON.stringify(validFeatures));
+        } else if (key === 'strains') {
+          data.append(key, JSON.stringify(formData.strains));
         } else if (key === 'strain_id' && formData.strain_id) {
           data.append(key, formData.strain_id.toString());
         } else if (formData[key as keyof typeof formData] !== null) {
@@ -196,7 +213,7 @@ const NewProduct: React.FC = () => {
         }
       });
       
-      // Add images
+      // Добавляем изображения
       data.append('image', images.main);
       images.gallery.forEach((file) => {
         data.append('gallery', file);
@@ -338,7 +355,7 @@ const NewProduct: React.FC = () => {
                     </div>
                   </motion.div>
                   
-                  {/* Strain Selection */}
+                  {/* Strain Selection - ВОССТАНОВЛЕНО */}
                   <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -347,12 +364,12 @@ const NewProduct: React.FC = () => {
                   >
                     <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
                       <Cigarette className="w-5 h-5 text-primary" />
-                      Strain Selection
+                      Strain Template (Optional)
                     </h2>
                     
                     <div className="space-y-4">
                       <div>
-                        <label className="block text-sm font-medium mb-2">Select Strain</label>
+                        <label className="block text-sm font-medium mb-2">Select Strain as Template</label>
                         <select
                           value={selectedStrain || ''}
                           onChange={(e) => handleStrainSelect(Number(e.target.value))}
@@ -362,10 +379,13 @@ const NewProduct: React.FC = () => {
                           <option value="">No strain selected</option>
                           {strains.map(strain => (
                             <option key={strain.id} value={strain.id}>
-                              {strain.name} ({strain.type})
+                              {strain.name} ({strain.type || 'N/A'})
                             </option>
                           ))}
                         </select>
+                        <p className="text-xs text-gray-400 mt-1">
+                          Select a strain to auto-fill THC, CBD, terpenes, and effects
+                        </p>
                       </div>
                       
                       {selectedStrain && (
@@ -442,6 +462,49 @@ const NewProduct: React.FC = () => {
                           placeholder="e.g., Euphoric, Relaxed, Creative, Uplifting"
                         />
                       </div>
+                    </div>
+                  </motion.div>
+
+                  {/* ДОБАВЛЕНО: Available Strains для выбора */}
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.15 }}
+                    className="glass-dark rounded-2xl p-6"
+                  >
+                    <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+                      <Sparkles className="w-5 h-5 text-primary" />
+                      Available Strains for Product
+                    </h2>
+                    
+                    <div>
+                      <label className="block text-sm font-medium mb-3">
+                        Select which strains customers can choose
+                      </label>
+                      <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto">
+                        {strains.map(strain => (
+                          <label
+                            key={strain.id}
+                            className={`p-3 rounded-xl border cursor-pointer transition-all ${
+                              formData.strains.includes(strain.id)
+                                ? 'bg-primary/20 border-primary'
+                                : 'bg-white/5 border-white/10 hover:border-white/30'
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={formData.strains.includes(strain.id)}
+                              onChange={() => handleStrainToggle(strain.id)}
+                              className="sr-only"
+                            />
+                            <div className="text-sm font-medium">{strain.name}</div>
+                            <div className="text-xs text-gray-400">{strain.type || 'N/A'}</div>
+                          </label>
+                        ))}
+                      </div>
+                      <p className="text-xs text-gray-400 mt-2">
+                        These strains will be available for selection on product page
+                      </p>
                     </div>
                   </motion.div>
                 </div>
@@ -537,11 +600,71 @@ const NewProduct: React.FC = () => {
                     </div>
                   </motion.div>
                   
-                  {/* Additional Info */}
+                  {/* ДОБАВЛЕНО: Key Features */}
                   <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.3 }}
+                    className="glass-dark rounded-2xl p-6"
+                  >
+                    <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+                      <Sparkles className="w-5 h-5 text-primary" />
+                      Key Features
+                    </h2>
+                    
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        {formData.features.map((feature, index) => (
+                          <div key={index} className="flex gap-2">
+                            <input
+                              type="text"
+                              value={feature}
+                              onChange={(e) => handleFeatureChange(index, e.target.value)}
+                              className="flex-1 px-4 py-2 bg-white/5 rounded-xl border border-white/10 
+                                       focus:border-primary/50 transition-colors"
+                              placeholder="e.g., Name: Zip-lock 3.5 g"
+                            />
+                            {formData.features.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => removeFeature(index)}
+                                className="p-2 rounded-xl hover:bg-red-500/20 text-red-400 
+                                         transition-colors"
+                              >
+                                <X className="w-5 h-5" />
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                        
+                        <button
+                          type="button"
+                          onClick={addFeature}
+                          className="w-full py-2 rounded-xl border border-dashed border-white/20 
+                                   hover:border-primary/50 transition-colors flex items-center 
+                                   justify-center gap-2 text-gray-400 hover:text-white"
+                        >
+                          <Plus className="w-4 h-4" />
+                          Add Feature
+                        </button>
+                      </div>
+
+                      <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-xl">
+                        <p className="text-xs text-blue-300 mb-1">💡 Formatting tips:</p>
+                        <ul className="text-xs text-blue-200 space-y-0.5 list-disc list-inside">
+                          <li>Use "Label: Value" format</li>
+                          <li>Each line = separate feature with checkmark</li>
+                          <li>Empty fields are ignored</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </motion.div>
+                  
+                  {/* Additional Info */}
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.4 }}
                     className="glass-dark rounded-2xl p-6"
                   >
                     <h2 className="text-xl font-bold mb-4">Additional Information</h2>
@@ -560,14 +683,14 @@ const NewProduct: React.FC = () => {
                       </div>
                       
                       <div>
-                        <label className="block text-sm font-medium mb-2">3D Model URL</label>
+                        <label className="block text-sm font-medium mb-2">3D Model Filename</label>
                         <input
                           type="text"
                           value={formData.model_3d}
                           onChange={(e) => setFormData({...formData, model_3d: e.target.value})}
                           className="w-full px-4 py-2 bg-white/5 rounded-xl border border-white/10 
                                    focus:border-primary/50 transition-colors"
-                          placeholder="URL to 3D model file"
+                          placeholder="e.g., plastic-bags-white.glb"
                         />
                       </div>
                       
@@ -581,43 +704,6 @@ const NewProduct: React.FC = () => {
                                    focus:border-primary/50 transition-colors resize-none"
                           placeholder="Product description..."
                         />
-                      </div>
-                      
-                      <div>
-                        <label className="block text-sm font-medium mb-2">Features</label>
-                        <div className="space-y-2">
-                          {formData.features.map((feature, index) => (
-                            <div key={index} className="flex gap-2">
-                              <input
-                                type="text"
-                                value={feature}
-                                onChange={(e) => handleFeatureChange(index, e.target.value)}
-                                className="flex-1 px-4 py-2 bg-white/5 rounded-xl border border-white/10 
-                                         focus:border-primary/50 transition-colors"
-                                placeholder="Enter feature"
-                              />
-                              <button
-                                type="button"
-                                onClick={() => removeFeature(index)}
-                                className="p-2 rounded-xl hover:bg-red-500/20 text-red-400 
-                                         transition-colors"
-                              >
-                                <X className="w-5 h-5" />
-                              </button>
-                            </div>
-                          ))}
-                          
-                          <button
-                            type="button"
-                            onClick={addFeature}
-                            className="w-full py-2 rounded-xl border border-dashed border-white/20 
-                                     hover:border-primary/50 transition-colors flex items-center 
-                                     justify-center gap-2 text-gray-400 hover:text-white"
-                          >
-                            <Plus className="w-4 h-4" />
-                            Add Feature
-                          </button>
-                        </div>
                       </div>
                       
                       <div className="flex items-center gap-3">

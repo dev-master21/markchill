@@ -21,6 +21,9 @@ import cartRoutes from './src/routes/cart.routes';
 // Import middleware
 import { errorHandler } from './src/middleware/error.middleware';
 
+// Import thumbnail cron service
+import { startThumbnailCron } from './src/services/thumbnail.cron'; // ДОБАВИТЬ
+
 const app = express();
 
 // Создаем папку uploads в backend директории
@@ -76,4 +79,7 @@ const PORT = process.env.PORT || 5965;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`Uploads directory: ${uploadsDir}`);
+  
+  // Запускаем cronjob для генерации thumbnails
+  startThumbnailCron(); // ДОБАВИТЬ
 });

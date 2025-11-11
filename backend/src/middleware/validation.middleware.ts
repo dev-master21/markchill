@@ -7,21 +7,66 @@ export { body, query, param } from 'express-validator';
 export const validate = (req: Request, res: Response, next: NextFunction) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    return res.status(400).json({ errors: errors.array() });
+    return res.status(400).json({ 
+      success: false,
+      errors: errors.array().map(err => ({
+        field: err.type === 'field' ? (err as any).path : 'unknown',
+        message: err.msg
+      }))
+    });
   }
   next();
 };
 
 export const authValidation = {
   register: [
-    body('name').trim().notEmpty().withMessage('Name is required'),
-    body('email').isEmail().normalizeEmail().withMessage('Valid email is required'),
-    body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
-    body('phone').optional().isMobilePhone('any').withMessage('Invalid phone number')
+    body('username')
+      .trim()
+      .notEmpty()
+      .withMessage('Username is required')
+      .isLength({ min: 3, max: 30 })
+      .withMessage('Username must be between 3 and 30 characters')
+      .matches(/^[a-zA-Z0-9_]+$/)
+      .withMessage('Username can only contain letters, numbers, and underscores'),
+    body('password')
+      .isLength({ min: 6 })
+      .withMessage('Password must be at least 6 characters'),
+    body('first_name')
+      .trim()
+      .notEmpty()
+      .withMessage('First name is required'),
+    body('last_name')
+      .optional()
+      .trim()
   ],
   login: [
-    body('email').isEmail().normalizeEmail().withMessage('Valid email is required'),
-    body('password').notEmpty().withMessage('Password is required')
+    body('username')
+      .trim()
+      .notEmpty()
+      .withMessage('Username is required'),
+    body('password')
+      .notEmpty()
+      .withMessage('Password is required')
+  ],
+  registerTelegram: [
+    body('token')
+      .notEmpty()
+      .withMessage('Telegram token is required'),
+    body('username')
+      .trim()
+      .notEmpty()
+      .withMessage('Username is required')
+      .isLength({ min: 3, max: 30 })
+      .withMessage('Username must be between 3 and 30 characters')
+      .matches(/^[a-zA-Z0-9_]+$/)
+      .withMessage('Username can only contain letters, numbers, and underscores'),
+    body('first_name')
+      .trim()
+      .notEmpty()
+      .withMessage('First name is required'),
+    body('last_name')
+      .optional()
+      .trim()
   ]
 };
 

@@ -11,18 +11,23 @@ export class UserService {
     }
     
     const [result] = await pool.execute<ResultSetHeader>(
-      `INSERT INTO users (name, email, password, phone, address, city, postal_code, country, role)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO users (name, email, password, phone, address, city, postal_code, country, role, username, first_name, last_name, telegram_id, telegram_username)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        userData.name,
-        userData.email,
-        userData.password,
+        userData.name || null,
+        userData.email || null, // Email is now optional
+        userData.password || null,
         userData.phone || null,
         userData.address || null,
         userData.city || null,
         userData.postal_code || null,
         userData.country || 'Thailand',
-        userData.role || 'customer'
+        userData.role || 'customer',
+        userData.username || null,
+        userData.first_name || null,
+        userData.last_name || null,
+        userData.telegram_id || null,
+        userData.telegram_username || null
       ]
     );
     
@@ -45,9 +50,39 @@ export class UserService {
   }
   
   static async findByEmail(email: string): Promise<User | null> {
+    if (!email) return null;
+    
     const [rows] = await pool.execute<RowDataPacket[]>(
       'SELECT * FROM users WHERE email = ?',
       [email]
+    );
+    
+    if (rows.length === 0) {
+      return null;
+    }
+    
+    return rows[0] as User;
+  }
+
+  static async findByUsername(username: string): Promise<User | null> {
+    if (!username) return null;
+    
+    const [rows] = await pool.execute<RowDataPacket[]>(
+      'SELECT * FROM users WHERE username = ?',
+      [username]
+    );
+    
+    if (rows.length === 0) {
+      return null;
+    }
+    
+    return rows[0] as User;
+  }
+
+  static async findByTelegramId(telegramId: number): Promise<User | null> {
+    const [rows] = await pool.execute<RowDataPacket[]>(
+      'SELECT * FROM users WHERE telegram_id = ?',
+      [telegramId]
     );
     
     if (rows.length === 0) {
@@ -61,7 +96,7 @@ export class UserService {
     const updates: string[] = [];
     const values: any[] = [];
     
-    const allowedFields = ['name', 'phone', 'address', 'city', 'postal_code', 'country', 'avatar'];
+    const allowedFields = ['name', 'phone', 'address', 'city', 'postal_code', 'country', 'avatar', 'username', 'first_name', 'last_name', 'email'];
     
     for (const [key, value] of Object.entries(userData)) {
       if (allowedFields.includes(key)) {

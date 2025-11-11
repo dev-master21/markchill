@@ -1,7 +1,7 @@
 export interface User {
   id?: number;
   name: string;
-  email: string;
+  email?: string;
   password?: string;
   phone?: string;
   address?: string;
@@ -15,6 +15,11 @@ export interface User {
   is_active: boolean;
   created_at?: Date;
   updated_at?: Date;
+  username?: string;
+  first_name?: string;
+  last_name?: string;
+  telegram_id?: number;
+  telegram_username?: string;
 }
 
 export interface Product {
@@ -37,8 +42,11 @@ export interface Product {
   stock?: number;
   strains?: Strain[];
   inventory?: Inventory;
-  strain_id?: number; // Добавляем для одиночного сорта
-  strain?: Strain; // Добавляем для данных сорта
+  strain_id?: number;
+  strain?: Strain;
+  terpenes?: string;
+  aroma_taste?: string;
+  effects?: string;
 }
 
 export interface Strain {
@@ -51,7 +59,7 @@ export interface Strain {
   terpenes?: string;
   aroma_taste?: string;
   effects?: string;
-  flavors?: string[]; // Оставляем для совместимости
+  flavors?: string[];
 }
 
 export interface Category {
@@ -85,6 +93,9 @@ export interface Order {
   notes?: string;
   tracking_number?: string;
   items?: OrderItem[];
+  created_at?: Date;
+  updated_at?: Date;
+  delivered_at?: Date;
 }
 
 export interface OrderItem {
@@ -107,6 +118,8 @@ export interface CartItem {
   quantity: number;
   product?: Product;
   strain?: Strain;
+  created_at?: Date;
+  updated_at?: Date;
 }
 
 export interface Inventory {
@@ -116,6 +129,7 @@ export interface Inventory {
   reserved_quantity: number;
   low_stock_threshold: number;
   last_restock_date?: Date;
+  updated_at?: Date;
 }
 
 export interface PromoCode {
@@ -130,10 +144,21 @@ export interface PromoCode {
   valid_from: Date;
   valid_until?: Date;
   is_active: boolean;
+  created_at?: Date;
+}
+
+export interface TelegramAuthToken {
+  id?: number;
+  token: string;
+  telegram_id: number;
+  user_id?: number;
+  expires_at: Date;
+  used: boolean;
+  created_at?: Date;
 }
 
 // Request interfaces
-export interface AuthRequest extends Express.Request {
+export interface AuthRequest extends Request {
   user?: User;
 }
 

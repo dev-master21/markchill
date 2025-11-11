@@ -21,8 +21,9 @@ import cartRoutes from './src/routes/cart.routes';
 // Import middleware
 import { errorHandler } from './src/middleware/error.middleware';
 
-// Import thumbnail cron service
-import { startThumbnailCron } from './src/services/thumbnail.cron'; // ДОБАВИТЬ
+// Import services
+import { startThumbnailCron } from './src/services/thumbnail.cron';
+import { TelegramService } from './src/services/telegram.service';
 
 const app = express();
 
@@ -81,5 +82,8 @@ app.listen(PORT, () => {
   console.log(`Uploads directory: ${uploadsDir}`);
   
   // Запускаем cronjob для генерации thumbnails
-  startThumbnailCron(); // ДОБАВИТЬ
+  startThumbnailCron();
+  
+  // Инициализируем Telegram бота
+  TelegramService.initBot();
 });

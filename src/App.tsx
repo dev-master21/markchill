@@ -18,12 +18,13 @@ import Profile from './pages/Profile';
 import Checkout from './pages/Checkout';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import TelegramCallback from './pages/TelegramCallback';
 import AdminDashboard from './pages/admin/Dashboard';
 import AdminProducts from './pages/admin/Products';
 import AdminOrders from './pages/admin/Orders';
 import AdminUsers from './pages/admin/Users';
 import AdminSettings from './pages/admin/Settings';
-import AdminStrains from './pages/admin/Strains'; // Новый импорт
+import AdminStrains from './pages/admin/Strains';
 import AdminRoute from './components/common/AdminRoute';
 import NewProduct from './pages/admin/NewProduct';
 import EditProduct from './pages/admin/EditProduct';
@@ -97,6 +98,7 @@ function App() {
             <Route path="/product/:slug" element={<ProductPage />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
+            <Route path="/auth/telegram-callback" element={<TelegramCallback />} />
             
             {/* Protected routes */}
             <Route path="/cart" element={

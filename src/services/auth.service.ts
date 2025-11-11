@@ -2,18 +2,26 @@ import api from './api';
 import { User } from '../types';
 
 export interface LoginData {
-  email: string;
+  username: string;
   password: string;
 }
 
 export interface RegisterData {
-  name: string;
-  email: string;
+  username: string;
   password: string;
-  phone?: string;
+  first_name: string;
+  last_name?: string;
+}
+
+export interface TelegramRegisterData {
+  token: string;
+  username: string;
+  first_name: string;
+  last_name?: string;
 }
 
 class AuthService {
+  // Обычный логин
   async login(data: LoginData): Promise<{ token: string; user: User }> {
     const response = await api.post('/auth/login', data);
     const { token, user } = response.data;
@@ -24,8 +32,37 @@ class AuthService {
     return { token, user };
   }
   
+  // Обычная регистрация
   async register(data: RegisterData): Promise<{ token: string; user: User }> {
     const response = await api.post('/auth/register', data);
+    const { token, user } = response.data;
+    
+    localStorage.setItem('token', token);
+    localStorage.setItem('user', JSON.stringify(user));
+    
+    return { token, user };
+  }
+
+  // Инициация Telegram авторизации
+  async initTelegramAuth(): Promise<string> {
+    const response = await api.get('/auth/telegram/init');
+    return response.data.botUrl;
+  }
+
+  // Callback после Telegram авторизации
+  async telegramAuthCallback(token: string): Promise<{ token: string; user: User }> {
+    const response = await api.post('/auth/telegram/callback', { token });
+    const { token: jwtToken, user } = response.data;
+    
+    localStorage.setItem('token', jwtToken);
+    localStorage.setItem('user', JSON.stringify(user));
+    
+    return { token: jwtToken, user };
+  }
+
+  // Регистрация через Telegram
+  async registerTelegram(data: TelegramRegisterData): Promise<{ token: string; user: User }> {
+    const response = await api.post('/auth/telegram/register', data);
     const { token, user } = response.data;
     
     localStorage.setItem('token', token);

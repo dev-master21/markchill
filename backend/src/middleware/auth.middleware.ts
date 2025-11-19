@@ -3,7 +3,8 @@ import { verifyToken } from '../utils/auth.utils';
 import pool from '../config/database';
 import { User } from '../types';
 
-interface AuthRequest extends Request {
+// ЭКСПОРТИРУЕМ интерфейс
+export interface AuthRequest extends Request {
   user?: User;
 }
 
@@ -31,8 +32,15 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
     req.user = users[0];
     delete req.user.password;
     
+    console.log('✅ User authenticated:', {
+      id: req.user.id,
+      name: req.user.name,
+      email: req.user.email
+    });
+    
     next();
   } catch (error) {
+    console.error('Authentication error:', error);
     return res.status(401).json({ message: 'Invalid token' });
   }
 };
@@ -49,4 +57,16 @@ export const authorize = (...roles: string[]) => {
     
     next();
   };
+};
+
+export const requireAdmin = (req: AuthRequest, res: Response, next: NextFunction) => {
+  if (!req.user) {
+    return res.status(401).json({ message: 'Authentication required' });
+  }
+
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ message: 'Admin access required' });
+  }
+
+  next();
 };

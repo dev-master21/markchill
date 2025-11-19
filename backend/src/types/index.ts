@@ -145,6 +145,14 @@ export interface PromoCode {
   valid_until?: Date;
   is_active: boolean;
   created_at?: Date;
+  products?: number[]; // ID товаров, на которые действует промокод
+}
+
+export interface PromoCodeUsage {
+  user_id: number;
+  promo_code_id: number;
+  used_at: Date;
+  user?: User;
 }
 
 export interface TelegramAuthToken {

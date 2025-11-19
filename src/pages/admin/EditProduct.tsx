@@ -180,6 +180,41 @@ const EditProduct: React.FC = () => {
     }
   };
 
+  // НОВОЕ: Функция фильтрации сортов в зависимости от типа продукта
+  const getFilteredStrains = () => {
+    const typeMapping: { [key: string]: string } = {
+      'WHITE': 'Sativa',
+      'BLACK': 'Indica',
+      'CYAN': 'Hybrid'
+    };
+
+    const requiredType = typeMapping[formData.type];
+    return strains.filter(strain => strain.type === requiredType);
+  };
+
+  // НОВОЕ: Очистка выбранных сортов при смене типа продукта
+  useEffect(() => {
+    if (strains.length === 0) return; // Ждем пока сорта загрузятся
+    
+    const filteredStrains = getFilteredStrains();
+    const filteredStrainIds = filteredStrains.map(s => s.id);
+    
+    // Убираем сорта, которые не соответствуют новому типу
+    const validStrains = formData.strains.filter(id => 
+      filteredStrainIds.includes(id)
+    );
+    
+    if (validStrains.length !== formData.strains.length) {
+      setFormData(prev => ({
+        ...prev,
+        strains: validStrains,
+        strain_id: validStrains.includes(prev.strain_id!) ? prev.strain_id : null
+      }));
+    }
+  }, [formData.type, strains]);
+
+  // ===== КОНЕЦ ДОБАВЛЕННЫХ ФУНКЦИЙ =====
+
   const handleMainImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -329,6 +364,8 @@ const EditProduct: React.FC = () => {
       setIsLoading(false);
     }
   };
+
+  const filteredStrains = getFilteredStrains();
 
   if (isLoadingProduct) {
     return (
@@ -643,79 +680,96 @@ const EditProduct: React.FC = () => {
                     </div>
                   </motion.div>
                   
-                  {/* Strains */}
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.4 }}
-                    className="glass-dark rounded-2xl p-6"
-                  >
-                    <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-                      <Flower2 className="w-5 h-5 text-primary" />
-                      Available Strains
-                    </h2>
-                    
-                    <div className="space-y-4">
-                      <div>
-                        <label className="text-sm text-gray-400 mb-2 block">
-                          Select strains available for this product
-                        </label>
-                        <div className="grid grid-cols-2 gap-3 max-h-64 overflow-y-auto">
-                          {strains.map(strain => (
-                            <label
-                              key={strain.id}
-                              className={`flex items-center gap-2 p-3 rounded-xl border cursor-pointer transition-all ${
-                                formData.strains.includes(strain.id)
-                                  ? 'bg-primary/20 border-primary'
-                                  : 'bg-white/5 border-white/10 hover:border-white/30'
-                              }`}
-                            >
-                              <input
-                                type="checkbox"
-                                checked={formData.strains.includes(strain.id)}
-                                onChange={() => handleStrainToggle(strain.id)}
-                                className="sr-only"
-                              />
-                              <div className="flex-1">
-                                <p className="font-medium text-sm">{strain.name}</p>
-                                {strain.type && (
-                                  <p className="text-xs text-gray-400">{strain.type}</p>
-                                )}
-                              </div>
-                              {formData.strains.includes(strain.id) && (
-                                <Check className="w-4 h-4 text-primary" />
-                              )}
-                            </label>
-                          ))}
-                        </div>
+                    {/* Strains */}
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.4 }}
+                      className="glass-dark rounded-2xl p-6"
+                    >
+                      <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+                        <Flower2 className="w-5 h-5 text-primary" />
+                        Available Strains
+                      </h2>
+                                        
+                      {/* НОВОЕ: Информация о типе сорта */}
+                      <div className="mb-4 p-3 rounded-lg bg-primary/10 border border-primary/20">
+                        <p className="text-sm text-primary">
+                          {formData.type === 'WHITE' && '🌿 Sativa strains available for WHITE products'}
+                          {formData.type === 'BLACK' && '🌙 Indica strains available for BLACK products'}
+                          {formData.type === 'CYAN' && '⚡ Hybrid strains available for CYAN products'}
+                        </p>
                       </div>
-                      
-                      {formData.strains.length > 0 && (
+                                        
+                      <div className="space-y-4">
                         <div>
                           <label className="text-sm text-gray-400 mb-2 block">
-                            Default strain (optional)
+                            Select strains available for this product
                           </label>
-                          <select
-                            value={formData.strain_id || ''}
-                            onChange={(e) => setFormData({
-                              ...formData,
-                              strain_id: e.target.value ? Number(e.target.value) : null
-                            })}
-                            className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl focus:outline-none focus:border-primary/50 transition-colors"
-                          >
-                            <option value="" className="bg-dark">No default strain</option>
-                            {strains
-                              .filter(s => formData.strains.includes(s.id))
-                              .map(strain => (
-                                <option key={strain.id} value={strain.id} className="bg-dark">
-                                  {strain.name}
-                                </option>
+                                        
+                          {filteredStrains.length === 0 ? (
+                            <div className="text-center py-8 text-gray-400">
+                              <p>No {formData.type === 'WHITE' ? 'Sativa' : formData.type === 'BLACK' ? 'Indica' : 'Hybrid'} strains available.</p>
+                              <p className="text-sm mt-2">Create strains in the Strains Management section first.</p>
+                            </div>
+                          ) : (
+                            <div className="grid grid-cols-2 gap-3 max-h-64 overflow-y-auto">
+                              {filteredStrains.map(strain => (
+                                <label
+                                  key={strain.id}
+                                  className={`flex items-center gap-2 p-3 rounded-xl border cursor-pointer transition-all ${
+                                    formData.strains.includes(strain.id)
+                                      ? 'bg-primary/20 border-primary'
+                                      : 'bg-white/5 border-white/10 hover:border-white/30'
+                                  }`}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={formData.strains.includes(strain.id)}
+                                    onChange={() => handleStrainToggle(strain.id)}
+                                    className="sr-only"
+                                  />
+                                  <div className="flex-1">
+                                    <p className="font-medium text-sm">{strain.name}</p>
+                                    {strain.type && (
+                                      <p className="text-xs text-gray-400">{strain.type}</p>
+                                    )}
+                                  </div>
+                                  {formData.strains.includes(strain.id) && (
+                                    <Check className="w-4 h-4 text-primary" />
+                                  )}
+                                </label>
                               ))}
-                          </select>
+                            </div>
+                          )}
                         </div>
-                      )}
-                    </div>
-                  </motion.div>
+                        
+                        {formData.strains.length > 0 && (
+                          <div>
+                            <label className="text-sm text-gray-400 mb-2 block">
+                              Default strain (optional)
+                            </label>
+                            <select
+                              value={formData.strain_id || ''}
+                              onChange={(e) => setFormData({
+                                ...formData,
+                                strain_id: e.target.value ? Number(e.target.value) : null
+                              })}
+                              className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl focus:outline-none focus:border-primary/50 transition-colors"
+                            >
+                              <option value="" className="bg-dark">No default strain</option>
+                              {filteredStrains
+                                .filter(s => formData.strains.includes(s.id))
+                                .map(strain => (
+                                  <option key={strain.id} value={strain.id} className="bg-dark">
+                                    {strain.name}
+                                  </option>
+                                ))}
+                            </select>
+                          </div>
+                        )}
+                      </div>
+                    </motion.div>
                   
                   {/* Key Features - ДОБАВЛЕНО */}
                   <motion.div

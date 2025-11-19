@@ -62,24 +62,20 @@ const TopNav: React.FC = () => {
       >
         <div className="max-w-7xl mx-auto w-full px-6">
           <div className="flex items-center justify-between h-20">
-            {/* Logo - С ИСПОЛЬЗОВАНИЕМ ЛОГОТИПА */}
-            <Link to="/" className="flex items-center gap-3 group">
+            {/* Logo - УМЕНЬШЕННЫЙ */}
+            <Link to="/" className="flex items-center group">
               <motion.div
                 whileHover={{ rotate: 360 }}
                 transition={{ duration: 0.7 }}
-                className="w-12 h-12 rounded-xl flex items-center justify-center"
+                className="flex items-center justify-center"
               >
                 <img 
                   src="/logo.svg" 
                   alt="CHILLIUM" 
-                  className="w-full h-full"
+                  className="h-10 w-auto"
                   style={{ filter: 'drop-shadow(0 0 10px rgba(35, 192, 219, 0.3))' }}
                 />
               </motion.div>
-              <div>
-                <span className="text-2xl font-bold text-white">CHILLIUM</span>
-                <span className="block text-xs text-gray-400">Premium Cannabis</span>
-              </div>
             </Link>
 
             {/* Center Navigation */}
@@ -238,15 +234,12 @@ const TopNav: React.FC = () => {
           >
             <div className="flex flex-col h-full p-6">
               <div className="flex items-center justify-between mb-8">
-                <div className="flex items-center gap-3">
-                  <img 
-                    src="/logo.svg" 
-                    alt="CHILLIUM" 
-                    className="w-10 h-10"
-                    style={{ filter: 'drop-shadow(0 0 10px rgba(35, 192, 219, 0.3))' }}
-                  />
-                  <span className="text-2xl font-bold text-white">CHILLIUM</span>
-                </div>
+                <img 
+                  src="/logo.svg" 
+                  alt="CHILLIUM" 
+                  className="h-10 w-auto"
+                  style={{ filter: 'drop-shadow(0 0 10px rgba(35, 192, 219, 0.3))' }}
+                />
                 <button
                   onClick={() => setIsMobileMenuOpen(false)}
                   className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center"

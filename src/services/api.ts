@@ -1,8 +1,7 @@
 import axios from 'axios';
 
-// Используем относительный путь для API
 const api = axios.create({
-  baseURL: '/api', // Относительный путь вместо localhost:5000
+  baseURL: '/api',
   headers: {
     'Content-Type': 'application/json',
   },

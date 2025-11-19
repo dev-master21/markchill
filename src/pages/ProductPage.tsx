@@ -7,7 +7,6 @@ import {
   ChevronRight,
   Camera,
   Box,
-  Info,
   X,
   Plus,
   Minus,
@@ -61,6 +60,7 @@ export default function ProductPage() {
   const [viewMode, setViewMode] = useState<'photos' | '3d'>('photos');
   const [availableStrains, setAvailableStrains] = useState<Strain[]>([]);
   const [selectedStrain, setSelectedStrain] = useState<Strain | null>(null);
+  const [tempStrain, setTempStrain] = useState<Strain | null>(null);
   const [strainModalOpen, setStrainModalOpen] = useState(false);
   const [quantity, setQuantity] = useState(1);
   const [loading, setLoading] = useState(true);
@@ -119,15 +119,27 @@ export default function ProductPage() {
     }
   };
 
+  const handleStrainClick = (strain: Strain) => {
+    setTempStrain(strain);
+    setStrainModalOpen(true);
+  };
+
+  const handleStrainSelect = (strain: Strain) => {
+    setSelectedStrain(strain);
+    setStrainModalOpen(false);
+    toast.success(`${strain.name} selected`);
+  };
+
   const handleAddToCart = () => {
     if (!product) return;
-
+  
     if (!selectedStrain && availableStrains.length > 0) {
       toast.error('Please select a strain');
       return;
     }
-
-    addItem(product, quantity, selectedStrain?.name);
+  
+    // ИСПРАВЛЕНО: передаем ID сорта вместо названия
+    addItem(product, quantity, selectedStrain?.id?.toString());
     toast.success(`${product.name} added to cart!`);
   };
 
@@ -389,17 +401,6 @@ export default function ProductPage() {
                     <Leaf className="w-5 h-5 text-primary" />
                     Available Strains
                   </h3>
-                  {selectedStrain && (
-                    <motion.button
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={() => setStrainModalOpen(true)}
-                      className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary/20 text-primary hover:bg-primary/30 transition-colors text-sm font-medium"
-                    >
-                      <Info className="w-4 h-4" />
-                      <span>Strain Info</span>
-                    </motion.button>
-                  )}
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -408,7 +409,7 @@ export default function ProductPage() {
                       key={strain.id}
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
-                      onClick={() => setSelectedStrain(strain)}
+                      onClick={() => handleStrainClick(strain)}
                       className={`p-4 rounded-xl border-2 transition-all text-left ${
                         selectedStrain?.id === strain.id
                           ? 'border-primary bg-primary/10'
@@ -491,9 +492,10 @@ export default function ProductPage() {
 
       {/* Strain Info Modal */}
       <StrainInfoModal
-        strain={selectedStrain}
+        strain={tempStrain}
         isOpen={strainModalOpen}
         onClose={() => setStrainModalOpen(false)}
+        onSelect={handleStrainSelect}
       />
     </div>
   );
@@ -504,9 +506,10 @@ interface StrainInfoModalProps {
   strain: Strain | null;
   isOpen: boolean;
   onClose: () => void;
+  onSelect: (strain: Strain) => void;
 }
 
-function StrainInfoModal({ strain, isOpen, onClose }: StrainInfoModalProps) {
+function StrainInfoModal({ strain, isOpen, onClose, onSelect }: StrainInfoModalProps) {
   if (!strain) return null;
 
   const strainTypeColors = {
@@ -663,6 +666,17 @@ function StrainInfoModal({ strain, isOpen, onClose }: StrainInfoModalProps) {
                     </div>
                   </div>
                 )}
+
+                {/* Select Button */}
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => onSelect(strain)}
+                  className="w-full py-4 rounded-xl bg-gradient-to-r from-primary to-blue-500 hover:from-primary/90 hover:to-blue-500/90 text-white font-bold text-lg flex items-center justify-center gap-2 transition-all shadow-lg shadow-primary/30"
+                >
+                  <CheckCircle className="w-5 h-5" />
+                  <span>Select</span>
+                </motion.button>
               </div>
             </motion.div>
           </div>

@@ -10,7 +10,8 @@ import {
   TrendingUp,
   ChevronLeft,
   ChevronRight,
-  Cigarette // Добавляем импорт
+  Cigarette,
+  Tag // ДОБАВЛЕНО для промокодов
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useAuthStore } from '../../store/authStore';
@@ -27,7 +28,8 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ isOpen, setIsOpen }) => {
   const menuItems = [
     { path: '/admin', label: 'Dashboard', icon: Home },
     { path: '/admin/products', label: 'Products', icon: Package },
-    { path: '/admin/strains', label: 'Strains', icon: Cigarette }, // Добавляем новый пункт
+    { path: '/admin/strains', label: 'Strains', icon: Cigarette },
+    { path: '/admin/promo-codes', label: 'Promo Codes', icon: Tag }, // ДОБАВЛЕНО
     { path: '/admin/orders', label: 'Orders', icon: ShoppingBag },
     { path: '/admin/users', label: 'Users', icon: Users },
     { path: '/admin/settings', label: 'Settings', icon: Settings },

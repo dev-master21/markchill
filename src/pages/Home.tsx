@@ -229,39 +229,19 @@ const VideoHero = () => {
 
       <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-transparent to-black/70" />
 
-      {/* Hero Content */}
-      <div className="relative z-10 flex flex-col items-center justify-center h-full text-center px-4">
+      {/* Hero Content - УМЕНЬШЕННЫЙ ТЕКСТ И ЕЩЕ НИЖЕ */}
+      <div className="relative z-10 flex flex-col items-center justify-end h-full text-center px-4 pb-32">
         <motion.div
           initial={{ y: 30, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.5, duration: 0.8 }}
-          className="mb-8"
+          className="mb-6"
         >
-          <motion.div
-            animate={{ 
-              scale: [1, 1.02, 1],
-            }}
-            transition={{ 
-              duration: 4,
-              repeat: Infinity,
-              ease: "easeInOut"
-            }}
-            className="mb-6"
-          >
-            <img 
-              src="/logo.svg" 
-              alt="CHILLIUM" 
-              className="w-20 h-20 md:w-24 md:h-24 mx-auto"
-              style={{ filter: 'drop-shadow(0 0 20px rgba(35, 192, 219, 0.5))' }}
-            />
-          </motion.div>
-          
-          <h1 className="text-5xl md:text-7xl font-bold mb-4">
-            <span className="block text-white mb-2">CHILLIUM</span>
-            <span className="gradient-text text-3xl md:text-5xl font-light">Premium Cannabis</span>
+          <h1 className="text-2xl md:text-4xl font-bold mb-3">
+            <span className="gradient-text">Premium Cannabis</span>
           </h1>
           
-          <p className="text-xl md:text-2xl text-gray-300 mt-4 max-w-2xl mx-auto">
+          <p className="text-base md:text-lg text-gray-300 max-w-xl mx-auto">
             Discover our curated collection of premium strains
           </p>
         </motion.div>
@@ -273,7 +253,7 @@ const VideoHero = () => {
         >
           <button
             onClick={() => window.scrollTo({ top: window.innerHeight, behavior: 'smooth' })}
-            className="px-8 py-4 gradient-primary text-black font-semibold rounded-full hover:scale-105 transition-transform shadow-lg hover:shadow-[0_0_30px_rgba(35,192,219,0.5)]"
+            className="px-6 py-3 gradient-primary text-black font-semibold rounded-full hover:scale-105 transition-transform shadow-lg hover:shadow-[0_0_30px_rgba(35,192,219,0.5)]"
           >
             Explore Collections
           </button>
@@ -331,7 +311,7 @@ const VideoHero = () => {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 1 }}
-        className="absolute bottom-32 lg:bottom-20 left-1/2 transform -translate-x-1/2"
+        className="absolute bottom-16 left-1/2 transform -translate-x-1/2"
       >
         <motion.div
           animate={{ y: [0, 10, 0] }}
@@ -339,8 +319,8 @@ const VideoHero = () => {
           className="flex flex-col items-center cursor-pointer"
           onClick={() => window.scrollTo({ top: window.innerHeight, behavior: 'smooth' })}
         >
-          <span className="text-sm text-gray-400 mb-2">Scroll to explore</span>
-          <ChevronDown className="w-6 h-6 text-primary animate-pulse" />
+          <span className="text-xs text-gray-400 mb-2">Scroll to explore</span>
+          <ChevronDown className="w-5 h-5 text-primary animate-pulse" />
         </motion.div>
       </motion.div>
     </motion.section>

@@ -383,9 +383,6 @@ const ProductImageCarousel: React.FC<ProductImageCarouselProps> = ({
                   transition={{ duration: 0.3, ease: "easeOut" }}
                 />
               </div>
-              <p className="text-xs text-white/40 mt-2">
-                {loadProgress}% ({Math.round(loadProgress * totalFrames / 100)} / {totalFrames} frames)
-              </p>
             </div>
           </div>
         )}
@@ -399,12 +396,6 @@ const ProductImageCarousel: React.FC<ProductImageCarouselProps> = ({
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.5, duration: 0.5 }}
           >
-            <h3 className="text-lg font-light text-white/90 mb-0.5 uppercase tracking-wider">
-              {strainType} Collection
-            </h3>
-            <p className="text-xs text-white/40 uppercase tracking-[0.2em] font-light">
-              Premium Edition • 360° View
-            </p>
           </motion.div>
         </div>
       )}

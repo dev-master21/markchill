@@ -28,6 +28,9 @@ import AdminStrains from './pages/admin/Strains';
 import AdminRoute from './components/common/AdminRoute';
 import NewProduct from './pages/admin/NewProduct';
 import EditProduct from './pages/admin/EditProduct';
+import AdminPromoCodes from './pages/admin/PromoCodes';
+import PromoCodeForm from './pages/admin/PromoCodeForm';
+import PromoCodeDetail from './pages/admin/PromoCodeDetail';
 
 function App() {
   const [isLoading, setIsLoading] = useState(true);
@@ -99,7 +102,10 @@ function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/auth/telegram-callback" element={<TelegramCallback />} />
-            
+            <Route path="/admin/promo-codes" element={<AdminRoute><AdminPromoCodes /></AdminRoute>} />
+            <Route path="/admin/promo-codes/new" element={<AdminRoute><PromoCodeForm /></AdminRoute>} />
+            <Route path="/admin/promo-codes/:id" element={<AdminRoute><PromoCodeDetail /></AdminRoute>} />
+            <Route path="/admin/promo-codes/:id/edit" element={<AdminRoute><PromoCodeForm /></AdminRoute>} />
             {/* Protected routes */}
             <Route path="/cart" element={
               <PrivateRoute>

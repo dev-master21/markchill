@@ -80,13 +80,26 @@ export const useCartStore = create<CartStore>((set, get) => ({
     }
   },
 
-  addItem: async (product: Product, quantity: number = 1, strain?: string) => {
+  addItem: async (product: Product, quantity: number = 1, strainId?: string) => {
     const token = localStorage.getItem('token');
     
     if (!token) {
       const currentItems = get().items;
+      
+      // Для локального хранилища находим название сорта по ID
+      let strainName: string | undefined;
+      if (strainId) {
+        try {
+          const response = await api.get('/strains');
+          const strain = response.data.find((s: any) => s.id === parseInt(strainId));
+          strainName = strain?.name;
+        } catch {
+          strainName = undefined;
+        }
+      }
+      
       const existingItem = currentItems.find(
-        item => item.product.id === product.id && item.strain === strain
+        item => item.product.id === product.id && item.strain === strainName
       );
       
       if (existingItem) {
@@ -100,10 +113,11 @@ export const useCartStore = create<CartStore>((set, get) => ({
       } else {
         try {
           const newItem: CartItem = {
-            id: `${product.id}-${strain || 'no-strain'}-${Date.now()}`,
+            id: `${product.id}-${strainId || 'no-strain'}-${Date.now()}`,
             product,
             quantity,
-            strain,
+            strain: strainName,
+            strain_id: strainId ? parseInt(strainId) : undefined,
             name: product.name,
             image: product.image,
             price: product.price,
@@ -120,12 +134,12 @@ export const useCartStore = create<CartStore>((set, get) => ({
       }
       return;
     }
-
+  
     try {
       await api.post('/cart', { 
         product_id: product.id, 
         quantity,
-        strain_id: strain ? parseInt(strain) : null
+        strain_id: strainId ? parseInt(strainId) : null
       });
       await get().fetchCart();
     } catch (error) {

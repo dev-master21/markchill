@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { User } from '../types';
-import authService, {RegisterData, TelegramRegisterData } from '../services/auth.service';
+import authService, { RegisterData, TelegramRegisterData } from '../services/auth.service';
 
 interface AuthStore {
   user: User | null;
@@ -9,6 +9,7 @@ interface AuthStore {
   isAuthenticated: boolean;
   isLoading: boolean;
   
+  setUser: (user: User | null) => void;
   login: (username: string, password: string) => Promise<void>;
   register: (data: RegisterData) => Promise<void>;
   telegramAuthInit: () => Promise<string>;
@@ -27,6 +28,13 @@ export const useAuthStore = create<AuthStore>()(
       token: null,
       isAuthenticated: false,
       isLoading: true,
+      
+      setUser: (user: User | null) => {
+        set({ 
+          user, 
+          isAuthenticated: !!user 
+        });
+      },
       
       login: async (username: string, password: string) => {
         try {
@@ -93,7 +101,7 @@ export const useAuthStore = create<AuthStore>()(
           const token = localStorage.getItem('token');
           if (token) {
             const user = await authService.getProfile();
-            set({ user });
+            set({ user, isAuthenticated: true });
             console.log('User data refreshed, role:', user.role);
           }
         } catch (error) {

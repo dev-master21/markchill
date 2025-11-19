@@ -88,6 +88,39 @@ const NewProduct: React.FC = () => {
     }
   };
 
+// НОВОЕ: Функция фильтрации сортов в зависимости от типа продукта
+const getFilteredStrains = () => {
+  const typeMapping: { [key: string]: string } = {
+    'WHITE': 'Sativa',
+    'BLACK': 'Indica',
+    'CYAN': 'Hybrid'
+  };
+
+  const requiredType = typeMapping[formData.type];
+  return strains.filter(strain => strain.type === requiredType);
+};
+
+// НОВОЕ: Очистка выбранных сортов при смене типа продукта
+useEffect(() => {
+  const filteredStrains = getFilteredStrains();
+  const filteredStrainIds = filteredStrains.map(s => s.id);
+  
+  // Убираем сорта, которые не соответствуют новому типу
+  const validStrains = formData.strains.filter(id => 
+    filteredStrainIds.includes(id)
+  );
+  
+  if (validStrains.length !== formData.strains.length) {
+    setFormData(prev => ({
+      ...prev,
+      strains: validStrains,
+      strain_id: validStrains.includes(prev.strain_id!) ? prev.strain_id : null
+    }));
+  }
+}, [formData.type, strains]);
+
+// ===== КОНЕЦ ДОБАВЛЕННЫХ ФУНКЦИЙ =====
+  
   // ВОССТАНОВЛЕНО: функция выбора сорта с шаблоном
   const handleStrainSelect = async (strainId: number) => {
     if (strainId === selectedStrain) return;
@@ -228,6 +261,9 @@ const NewProduct: React.FC = () => {
       setIsLoading(false);
     }
   };
+
+  // НОВОЕ: Получаем отфильтрованные сорта для отображения
+  const filteredStrains = getFilteredStrains();
 
   return (
     <div className="min-h-screen relative">
@@ -476,32 +512,49 @@ const NewProduct: React.FC = () => {
                       <Sparkles className="w-5 h-5 text-primary" />
                       Available Strains for Product
                     </h2>
-                    
+                                      
+                    {/* НОВОЕ: Информация о типе сорта */}
+                    <div className="mb-4 p-3 rounded-lg bg-primary/10 border border-primary/20">
+                      <p className="text-sm text-primary">
+                        {formData.type === 'WHITE' && '🌿 Sativa strains available for WHITE products'}
+                        {formData.type === 'BLACK' && '🌙 Indica strains available for BLACK products'}
+                        {formData.type === 'CYAN' && '⚡ Hybrid strains available for CYAN products'}
+                      </p>
+                    </div>
+                                      
                     <div>
                       <label className="block text-sm font-medium mb-3">
                         Select which strains customers can choose
                       </label>
-                      <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto">
-                        {strains.map(strain => (
-                          <label
-                            key={strain.id}
-                            className={`p-3 rounded-xl border cursor-pointer transition-all ${
-                              formData.strains.includes(strain.id)
-                                ? 'bg-primary/20 border-primary'
-                                : 'bg-white/5 border-white/10 hover:border-white/30'
-                            }`}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={formData.strains.includes(strain.id)}
-                              onChange={() => handleStrainToggle(strain.id)}
-                              className="sr-only"
-                            />
-                            <div className="text-sm font-medium">{strain.name}</div>
-                            <div className="text-xs text-gray-400">{strain.type || 'N/A'}</div>
-                          </label>
-                        ))}
-                      </div>
+                                      
+                      {filteredStrains.length === 0 ? (
+                        <div className="text-center py-8 text-gray-400">
+                          <p>No {formData.type === 'WHITE' ? 'Sativa' : formData.type === 'BLACK' ? 'Indica' : 'Hybrid'} strains available.</p>
+                          <p className="text-sm mt-2">Create strains in the Strains Management section first.</p>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto">
+                          {filteredStrains.map(strain => (
+                            <label
+                              key={strain.id}
+                              className={`p-3 rounded-xl border cursor-pointer transition-all ${
+                                formData.strains.includes(strain.id)
+                                  ? 'bg-primary/20 border-primary'
+                                  : 'bg-white/5 border-white/10 hover:border-white/30'
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={formData.strains.includes(strain.id)}
+                                onChange={() => handleStrainToggle(strain.id)}
+                                className="sr-only"
+                              />
+                              <div className="text-sm font-medium">{strain.name}</div>
+                              <div className="text-xs text-gray-400">{strain.type || 'N/A'}</div>
+                            </label>
+                          ))}
+                        </div>
+                      )}
                       <p className="text-xs text-gray-400 mt-2">
                         These strains will be available for selection on product page
                       </p>
